@@ -1,3 +1,4 @@
+import os
 import jwt
 import uuid
 import redis
@@ -6,16 +7,22 @@ from pathlib import Path
 from typing import Optional
 from app.auth.schemas import TokenData, UserRole
 
-# Cargar claves RS256
-PRIVATE_KEY = Path("../infra/certs/private.pem").read_text()
-PUBLIC_KEY  = Path("../infra/certs/public.pem").read_text()
+# Cargar claves RS256. La ruta puede sobreescribirse con CERTS_DIR para
+# poder montar las llaves dentro del contenedor en otra ubicacion.
+CERTS_DIR = Path(os.getenv("CERTS_DIR", "../infra/certs"))
+PRIVATE_KEY = (CERTS_DIR / "private.pem").read_text()
+PUBLIC_KEY  = (CERTS_DIR / "public.pem").read_text()
 
 ALGORITHM                  = "RS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 QR_TOKEN_EXPIRE_SECONDS     = 30
 
-# Redis para blacklist
-redis_client = redis.from_url("redis://:redispassword123@localhost:6379/0", decode_responses=True)
+# Redis para blacklist. Se puede apuntar al servicio docker con REDIS_URL.
+REDIS_URL = os.getenv(
+    "REDIS_URL",
+    "redis://:redispassword123@localhost:6379/0",
+)
+redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 # ----------------------------------------------------------
 # Generar access token (login)

@@ -47,3 +47,59 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sc_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      # Apuntamos al hostname del servicio dentro de la red de compose
+      DATABASE_URL: "postgresql+asyncpg://scadmin:scpassword123@postgres:5432/smartcampus"
+      REDIS_URL: "redis://:redispassword123@redis:6379/0"
+      # Polling para que --reload funcione bien con bind mount en Windows
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      # Codigo del backend para hot-reload con uvicorn --reload
+      - ./backend:/app/backend
+      # Volumen anonimo: oculta el venv/ del host (que es para Windows y
+      # ademas dispara el "Cannot allocate memory" del watcher al tener
+      # miles de archivos).
+      - /app/backend/venv
+      - /app/backend/__pycache__
+      # Las llaves RS256 viven fuera de smart-campus/, las montamos read-only.
+      # Path("../infra/certs/...") desde /app/backend resuelve a /app/infra/certs/.
+      - ../infra:/app/infra:ro
+    networks:
+      - smart-campus-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sc_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      # Bind mount del codigo para hot-reload
+      - ./frontend:/app
+      # Volumen anonimo: evita que el bind mount aplaste node_modules
+      # del contenedor (que se construyo para Linux dentro de la imagen).
+      - /app/node_modules
+    environment:
+      # Polling para que Vite detecte cambios desde un FS montado en Windows
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    networks:
+      - smart-campus-net
