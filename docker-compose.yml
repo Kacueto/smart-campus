@@ -1,0 +1,49 @@
+version: "3.9"
+
+networks:
+  smart-campus-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartcampus
+      POSTGRES_USER: scadmin
+      POSTGRES_PASSWORD: scpassword123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - smart-campus-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scadmin -d smartcampus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sc_redis
+    restart: unless-stopped
+    command: redis-server --requirepass redispassword123 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - smart-campus-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redispassword123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

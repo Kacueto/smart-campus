@@ -1,69 +1,67 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { users } from "../data/users";
+import { login } from "../services/api";
 
 const dashboardByRole = {
-  student: "/dashboard/estudiante",
-  teacher: "/dashboard/profesor",
-  classroomAdmin: "/dashboard/admin-aulas",
+  estudiante: "/dashboard/estudiante",
+  docente:    "/dashboard/profesor",
+  administrador: "/dashboard/admin-aulas",
+};
+
+const roleMap = {
+  student:       "estudiante",
+  teacher:       "docente",
+  classroomAdmin: "administrador",
 };
 
 export default function LoginCard({ roleConfig, role }) {
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
-
+  const [formData, setFormData] = useState({ codigo: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-
-    setFormData((currentData) => ({
-      ...currentData,
-      [name]: value,
-    }));
-
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
     setErrorMessage("");
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage("");
 
-    setTimeout(() => {
-      const userFound = users.find(
-        (user) =>
-          user.email === formData.email &&
-          user.password === formData.password &&
-          user.role === role
-      );
+    try {
+      const data = await login(formData.codigo, formData.password);
 
-      if (!userFound) {
-        setErrorMessage("Correo, contraseña o tipo de usuario incorrecto.");
+      // Verificar que el rol coincide con la pantalla de login
+      const expectedRole = roleMap[role];
+      if (data.role !== expectedRole) {
+        setErrorMessage("No tienes acceso a este portal.");
         setIsSubmitting(false);
         return;
       }
 
-      localStorage.setItem(
-        "authUser",
-        JSON.stringify({
-          id: userFound.id,
-          name: userFound.name,
-          email: userFound.email,
-          role: userFound.role,
-          code: userFound.code,
-          program: userFound.program,
-        })
-      );
+      // Guardar token y usuario
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("authUser", JSON.stringify({
+        nombre: data.nombre,
+        role:   data.role,
+        codigo: formData.codigo,
+      }));
 
-      navigate(dashboardByRole[userFound.role]);
-    }, 700);
+      navigate(dashboardByRole[data.role]);
+
+    } catch (error) {
+      if (error.response?.status === 401) {
+        setErrorMessage("Código o contraseña incorrectos.");
+      } else {
+        setErrorMessage("Error de conexión. Intenta de nuevo.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -72,7 +70,6 @@ export default function LoginCard({ roleConfig, role }) {
         <h2 className="m-0 text-3xl font-bold tracking-[-0.045em] text-slate-900">
           Iniciar sesión
         </h2>
-
         <p className="mt-2.5 text-sm leading-6 text-slate-500">
           {roleConfig.helperText}
         </p>
@@ -80,13 +77,13 @@ export default function LoginCard({ roleConfig, role }) {
 
       <form className="mt-7 grid gap-4" onSubmit={handleSubmit}>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Correo institucional
+          Código universitario
           <input
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-300/20"
-            type="email"
-            name="email"
-            placeholder="usuario@uninorte.edu.co"
-            value={formData.email}
+            type="text"
+            name="codigo"
+            placeholder="Ej: 2024001"
+            value={formData.codigo}
             onChange={handleChange}
             required
           />
@@ -111,23 +108,6 @@ export default function LoginCard({ roleConfig, role }) {
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <input
-              className="h-4 w-4 rounded border-slate-300 accent-orange-300"
-              type="checkbox"
-            />
-            Recordarme
-          </label>
-
-          <button
-            type="button"
-            className="border-0 bg-transparent p-0 text-sm font-bold text-slate-700 transition hover:text-orange-400"
-          >
-            ¿Olvidaste tu contraseña?
-          </button>
-        </div>
-
         <button
           className="mt-1 w-full rounded-2xl bg-orange-300 px-4 py-3.5 font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
           type="submit"
@@ -139,27 +119,9 @@ export default function LoginCard({ roleConfig, role }) {
 
       <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-xs leading-5 text-slate-500">
         <p className="font-bold text-slate-700">Credenciales demo:</p>
-
-        {role === "student" && (
-          <>
-            <p>Correo: estudiante@uninorte.edu.co</p>
-            <p>Contraseña: estudiante123</p>
-          </>
-        )}
-
-        {role === "teacher" && (
-          <>
-            <p>Correo: profesor@uninorte.edu.co</p>
-            <p>Contraseña: profesor123</p>
-          </>
-        )}
-
-        {role === "classroomAdmin" && (
-          <>
-            <p>Correo: admin@uninorte.edu.co</p>
-            <p>Contraseña: admin123</p>
-          </>
-        )}
+        {role === "student"       && <p>Código: 2024001 · Contraseña: 1234</p>}
+        {role === "teacher"       && <p>Código: DOC001 · Contraseña: 1234</p>}
+        {role === "classroomAdmin" && <p>Código: ADM001 · Contraseña: 1234</p>}
       </div>
     </article>
   );
