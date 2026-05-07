@@ -13,10 +13,7 @@ export default function AppRouter() {
 
         <Route path="/login/profesor" element={<LoginPage role="teacher" />} />
         <Route path="/login/estudiante" element={<LoginPage role="student" />} />
-        <Route
-          path="/login/admin-aulas"
-          element={<LoginPage role="classroomAdmin" />}
-        />
+        <Route path="/login/admin-aulas" element={<LoginPage role="classroomAdmin" />} />
 
         <Route path="/dashboard/estudiante" element={<StudentDashboard />} />
         <Route path="/dashboard/profesor" element={<TeacherDashboard />} />
