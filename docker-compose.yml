@@ -7,6 +7,8 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  mosquitto_data:
+  mosquitto_log:
 
 services:
 
@@ -44,6 +46,24 @@ services:
       - smart-campus-net
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "redispassword123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: sc_mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - smart-campus-net
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -p 1883 -t test -m ping || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

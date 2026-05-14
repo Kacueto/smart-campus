@@ -1,0 +1,8 @@
+opencv-python
+pyzbar
+paho-mqtt
+PyJWT
+cryptography
+requests
+gpiozero
+lgpio

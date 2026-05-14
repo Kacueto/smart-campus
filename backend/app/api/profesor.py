@@ -24,12 +24,12 @@ async def mis_clases_hoy(
             a.edificio,
             a.codigo as aula_codigo,
             a.id as aula_id,
-            COUNT(i.id) as total_estudiantes
+            COUNT(i.user_id) as total_estudiantes
         FROM horarios h
         JOIN aulas a ON h.aula_id = a.id
         LEFT JOIN inscripciones i ON i.horario_id = h.id
         WHERE h.docente_id = :docente_id
-        AND h.dia_semana = EXTRACT(ISODOW FROM NOW())::int
+        AND h.dia_semana = EXTRACT(ISODOW FROM NOW() AT TIME ZONE 'America/Bogota')::int
         AND h.activo = true
         GROUP BY h.id, a.id
         ORDER BY h.hora_inicio
@@ -70,7 +70,7 @@ async def todas_mis_clases(
             a.nombre as aula,
             a.edificio,
             a.id as aula_id,
-            COUNT(i.id) as total_estudiantes
+            COUNT(i.user_id) as total_estudiantes
         FROM horarios h
         JOIN aulas a ON h.aula_id = a.id
         LEFT JOIN inscripciones i ON i.horario_id = h.id
