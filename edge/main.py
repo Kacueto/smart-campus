@@ -148,21 +148,72 @@ def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
 
 
 # ── Bucle principal ───────────────────────────────────────────────────────────
-def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str):
+def _procesar_token(token: str, aula_id: str, aula_uuid: str, ip_edge: str):
+    logger.info(f"QR recibido (len={len(token)})")
+
+    payload = _validar_jwt_local(token)
+    if payload is None:
+        logger.info("Validación local FALLIDA → LED rojo")
+        _publicar_evento(aula_id, {
+            "resultado": "denegado", "motivo": "jwt_invalido_local",
+            "aula_id": aula_id, "ts": datetime.now(timezone.utc).isoformat()
+        })
+        _activar_led(permitido=False)
+        return
+
+    resultado = _llamar_backend(token, aula_uuid, ip_edge)
+    permitido = resultado.get("acceso") == "permitido"
+
+    logger.info(
+        f"Backend → {resultado.get('acceso')} | "
+        f"{resultado.get('nombre','?')} | {resultado.get('motivo','')}"
+    )
+
+    _publicar_evento(aula_id, {
+        "resultado": resultado.get("acceso"),
+        "nombre":    resultado.get("nombre"),
+        "codigo":    resultado.get("codigo"),
+        "motivo":    resultado.get("motivo"),
+        "aula_id":   aula_id,
+        "ts":        datetime.now(timezone.utc).isoformat(),
+    })
+
+    _activar_led(permitido=permitido)
+
+
+def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: bool = False):
     global BACKEND_URL
     BACKEND_URL = backend_url
 
     logger.info(f"Edge node iniciado — Aula: {aula_id} | Backend: {backend_url}")
+    if simulate:
+        logger.info("MODO SIMULACIÓN — sin cámara ni LEDs físicos")
     _init_mqtt(aula_id)
 
+    if simulate:
+        # ── Modo simulación: leer token desde teclado ─────────────────────
+        print("\n" + "="*60)
+        print("  SIMULADOR EDGE NODE — Smart Campus")
+        print("  Pega el QR token y presiona Enter. Ctrl+C para salir.")
+        print("="*60 + "\n")
+        try:
+            while True:
+                token = input("QR token> ").strip()
+                if token:
+                    _procesar_token(token, aula_id, aula_uuid, ip_edge)
+        except KeyboardInterrupt:
+            logger.info("Simulación detenida")
+        return
+
+    # ── Modo cámara real ──────────────────────────────────────────────────
     cap = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
-        logger.error("No se pudo abrir la cámara. Verifica el índice o el dispositivo.")
+        logger.error("No se pudo abrir la cámara. Usa --simulate para modo sin cámara.")
         return
 
     ultimo_token = None
     ultimo_ts    = 0
-    COOLDOWN     = 3  # segundos entre escaneos del mismo QR
+    COOLDOWN     = 3
 
     logger.info("Cámara lista. Esperando QR...")
 
@@ -170,56 +221,18 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str):
         while True:
             ret, frame = cap.read()
             if not ret:
-                logger.warning("Frame vacío, reintentando...")
                 time.sleep(0.1)
                 continue
 
-            qrs = pyzbar.decode(frame)
-            for qr in qrs:
+            for qr in pyzbar.decode(frame):
                 token = qr.data.decode("utf-8")
                 ahora = time.time()
-
-                # Evitar procesar el mismo QR dos veces seguidas
                 if token == ultimo_token and (ahora - ultimo_ts) < COOLDOWN:
                     continue
-
                 ultimo_token = token
                 ultimo_ts    = ahora
+                _procesar_token(token, aula_id, aula_uuid, ip_edge)
 
-                logger.info(f"QR detectado (len={len(token)})")
-
-                # 1. Validación local rápida (sin red)
-                payload = _validar_jwt_local(token)
-                if payload is None:
-                    logger.info("Validación local FALLIDA → LED rojo")
-                    _publicar_evento(aula_id, {
-                        "resultado": "denegado", "motivo": "jwt_invalido_local",
-                        "aula_id": aula_id, "ts": datetime.now(timezone.utc).isoformat()
-                    })
-                    _activar_led(permitido=False)
-                    continue
-
-                # 2. Validación completa en el backend
-                resultado = _llamar_backend(token, aula_uuid, ip_edge)
-                permitido = resultado.get("acceso") == "permitido"
-
-                logger.info(
-                    f"Backend → {resultado.get('acceso')} | "
-                    f"{resultado.get('nombre','?')} | {resultado.get('motivo','')}"
-                )
-
-                _publicar_evento(aula_id, {
-                    "resultado": resultado.get("acceso"),
-                    "nombre":    resultado.get("nombre"),
-                    "codigo":    resultado.get("codigo"),
-                    "motivo":    resultado.get("motivo"),
-                    "aula_id":   aula_id,
-                    "ts":        datetime.now(timezone.utc).isoformat(),
-                })
-
-                _activar_led(permitido=permitido)
-
-            # Mostrar frame (opcional — comentar si corre headless)
             cv2.imshow("Smart Campus — Lector QR", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -245,6 +258,7 @@ if __name__ == "__main__":
     parser.add_argument("--backend",     default="http://localhost:8000", help="URL del backend")
     parser.add_argument("--mqtt-host",   default="localhost", help="Host del broker MQTT")
     parser.add_argument("--ip",          default="0.0.0.0", help="IP de este nodo edge")
+    parser.add_argument("--simulate",    action="store_true", help="Modo simulación sin cámara")
     args = parser.parse_args()
 
     MQTT_HOST = args.mqtt_host
@@ -253,4 +267,5 @@ if __name__ == "__main__":
         backend_url=args.backend,
         aula_uuid=args.aula_uuid,
         ip_edge=args.ip,
+        simulate=args.simulate,
     )
