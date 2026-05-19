@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh } from "@tabler/icons-react";
+import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck } from "@tabler/icons-react";
 import { QRCode } from "react-qr-code";
 import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, getAsistenciaSesion } from "../services/api";
 import Clock from "../components/Clock";
@@ -39,6 +39,13 @@ export default function TeacherDashboard() {
   const pollRef     = useRef(null);
 
   const [sesionError, setSesionError] = useState(null);
+  const [copiado, setCopiado] = useState(false);
+
+  const copiarToken = () => {
+    navigator.clipboard.writeText(qrToken);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
 
   // Iniciar sesión
   const iniciarSesion = async () => {
@@ -303,6 +310,14 @@ export default function TeacherDashboard() {
                   </span>
                   <span className="text-green-600 font-bold">● Puerta abierta</span>
                 </div>
+
+                <button
+                  onClick={copiarToken}
+                  className="w-full flex items-center justify-center gap-2 border border-slate-200 rounded py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  {copiado ? <IconCheck size={15} className="text-green-500" /> : <IconCopy size={15} />}
+                  {copiado ? "Token copiado" : "Copiar token"}
+                </button>
               </section>
             )}
 

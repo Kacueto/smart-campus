@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { QRCode } from "react-qr-code";
-import { IconArrowLeft, IconRefresh } from "@tabler/icons-react";
+import { IconArrowLeft, IconRefresh, IconCopy, IconCheck } from "@tabler/icons-react";
 import { generateQRToken } from "../services/api";
 
 export default function QRPage() {
@@ -13,6 +13,13 @@ export default function QRPage() {
   const [expira,      setExpira]      = useState(30);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
+  const [copiado,     setCopiado]     = useState(false);
+
+  const copiarToken = () => {
+    navigator.clipboard.writeText(qrToken);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
 
   const fetchQR = useCallback(async () => {
     if (!aulaId) return;
@@ -102,15 +109,22 @@ export default function QRPage() {
         )}
       </div>
 
-      {/* Countdown */}
+      {/* Countdown + copiar */}
       {qrToken && !error && (
-        <div className="text-center grid gap-2">
+        <div className="text-center grid gap-3">
           <div className="flex items-center justify-center gap-2">
             <div className={`w-2 h-2 rounded-full ${expira > 10 ? "bg-green-400" : "bg-orange-400"} animate-pulse`} />
             <p className="text-sm font-bold text-slate-300">
               QR válido por <span className={expira <= 10 ? "text-orange-400" : "text-green-400"}>{expira}s</span>
             </p>
           </div>
+          <button
+            onClick={copiarToken}
+            className="flex items-center justify-center gap-2 mx-auto px-4 py-2 rounded border border-slate-600 text-sm font-bold text-slate-300 hover:bg-slate-800 transition"
+          >
+            {copiado ? <IconCheck size={15} className="text-green-400" /> : <IconCopy size={15} />}
+            {copiado ? "Token copiado" : "Copiar token"}
+          </button>
           <p className="text-xs text-slate-500">Se renueva automáticamente</p>
         </div>
       )}

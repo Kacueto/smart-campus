@@ -15,8 +15,6 @@ import logging
 import json
 import requests
 import jwt
-import cv2
-from pyzbar import pyzbar
 import paho.mqtt.client as mqtt
 from pathlib import Path
 from datetime import datetime, timezone
@@ -72,15 +70,19 @@ except Exception as e:
 
 
 def _activar_led(permitido: bool):
-    color = "VERDE" if permitido else "ROJO"
-    logger.info(f"LED {color} encendido por {LED_DURACION}s")
     if _gpio_disponible:
         led = led_verde if permitido else led_rojo
+        logger.info(f"LED {'VERDE' if permitido else 'ROJO'} encendido por {LED_DURACION}s")
         led.on()
         time.sleep(LED_DURACION)
         led.off()
     else:
+        if permitido:
+            print("\n\033[42m\033[97m  ✔  ACCESO PERMITIDO  — LED VERDE  \033[0m")
+        else:
+            print("\n\033[41m\033[97m  ✘  ACCESO DENEGADO   — LED ROJO   \033[0m")
         time.sleep(LED_DURACION)
+        print()
 
 
 # ── MQTT ──────────────────────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
             json={"qr_token": qr_token, "aula_id": aula_id, "ip_edge": ip_edge},
             timeout=5,
         )
+        logger.info(f"Backend HTTP {resp.status_code} | body: {resp.text[:300]}")
         return resp.json()
     except requests.exceptions.Timeout:
         logger.error("Backend: timeout")
@@ -148,7 +151,7 @@ def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
 
 
 # ── Bucle principal ───────────────────────────────────────────────────────────
-def _procesar_token(token: str, aula_id: str, aula_uuid: str, ip_edge: str):
+def _procesar_token_con_resultado(token: str, aula_id: str, aula_uuid: str, ip_edge: str) -> dict:
     logger.info(f"QR recibido (len={len(token)})")
 
     payload = _validar_jwt_local(token)
@@ -159,7 +162,7 @@ def _procesar_token(token: str, aula_id: str, aula_uuid: str, ip_edge: str):
             "aula_id": aula_id, "ts": datetime.now(timezone.utc).isoformat()
         })
         _activar_led(permitido=False)
-        return
+        return {"acceso": "denegado", "motivo": "jwt_invalido_local"}
 
     resultado = _llamar_backend(token, aula_uuid, ip_edge)
     permitido = resultado.get("acceso") == "permitido"
@@ -179,6 +182,11 @@ def _procesar_token(token: str, aula_id: str, aula_uuid: str, ip_edge: str):
     })
 
     _activar_led(permitido=permitido)
+    return resultado
+
+
+def _procesar_token(token: str, aula_id: str, aula_uuid: str, ip_edge: str):
+    _procesar_token_con_resultado(token, aula_id, aula_uuid, ip_edge)
 
 
 def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: bool = False):
@@ -194,18 +202,44 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
         # ── Modo simulación: leer token desde teclado ─────────────────────
         print("\n" + "="*60)
         print("  SIMULADOR EDGE NODE — Smart Campus")
-        print("  Pega el QR token y presiona Enter. Ctrl+C para salir.")
-        print("="*60 + "\n")
+        print(f"  Aula: {aula_id}")
+        print("  Ctrl+C para salir.")
+        print("="*60)
+
+        sesion_activa = False
+
         try:
             while True:
-                token = input("QR token> ").strip()
-                if token:
-                    _procesar_token(token, aula_id, aula_uuid, ip_edge)
+                if not sesion_activa:
+                    print("\n\033[90m[ Esperando QR del profesor para abrir sesión ]\033[0m")
+                    token = input("QR profesor> ").strip()
+                else:
+                    print("\n\033[90m[ Sesión activa — pega QR del estudiante, o escribe 'cerrar' ]\033[0m")
+                    token = input("QR estudiante> ").strip()
+
+                if not token:
+                    continue
+
+                if token.lower() == "cerrar":
+                    sesion_activa = False
+                    print("\n\033[93m  ⏹  Sesión cerrada manualmente\033[0m\n")
+                    continue
+
+                resultado = _procesar_token_con_resultado(token, aula_id, aula_uuid, ip_edge)
+
+                if not sesion_activa:
+                    if resultado and resultado.get("acceso") == "permitido" and resultado.get("rol") == "docente":
+                        sesion_activa = True
+                        print(f"\n\033[44m\033[97m  🎓  Sesión abierta — Prof. {resultado.get('nombre','')}  \033[0m")
+                        print("\033[96m  Pidan pasar a los estudiantes para registrar asistencia.\033[0m\n")
+
         except KeyboardInterrupt:
             logger.info("Simulación detenida")
         return
 
     # ── Modo cámara real ──────────────────────────────────────────────────
+    import cv2
+    from pyzbar import pyzbar
     cap = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
         logger.error("No se pudo abrir la cámara. Usa --simulate para modo sin cámara.")

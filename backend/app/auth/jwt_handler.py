@@ -1,10 +1,13 @@
 import jwt
 import uuid
 import redis
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from app.auth.schemas import TokenData, UserRole
+
+logger = logging.getLogger(__name__)
 
 # Cargar claves RS256
 PRIVATE_KEY = Path("../infra/certs/private.pem").read_text()
@@ -68,15 +71,18 @@ def verify_token(token: str) -> Optional[dict]:
         if payload.get("type") == "qr":
             nonce = payload.get("nonce")
             if redis_client.exists(f"nonce:{nonce}"):
+                logger.warning(f"verify_token: nonce ya usado → {nonce[:8]}...")
                 return None
             # Marcar nonce como usado (expira en 60s)
             redis_client.setex(f"nonce:{nonce}", 60, "used")
 
         return payload
 
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
+        logger.warning(f"verify_token: token expirado → {e}")
         return None
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"verify_token: token inválido → {e}")
         return None
 
 # ----------------------------------------------------------
