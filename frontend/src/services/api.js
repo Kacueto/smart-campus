@@ -94,3 +94,44 @@ export const cancelarReserva = async (reservaId) => {
   const { data } = await api.delete(`/reservas/cancelar/${reservaId}`);
   return data;
 };
+
+// Admin
+export const getAdminStats = async () => {
+  const { data } = await api.get("/admin/stats");
+  return data;
+};
+
+export const getAdminUsuarios = async () => {
+  const { data } = await api.get("/admin/usuarios");
+  return data;
+};
+
+export const crearAdminUsuario = async (payload) => {
+  const { data } = await api.post("/admin/usuarios", payload);
+  return data;
+};
+
+export const toggleAdminUsuario = async (userId) => {
+  const { data } = await api.patch(`/admin/usuarios/${userId}/toggle`);
+  return data;
+};
+
+export const getAdminAulas = async () => {
+  const { data } = await api.get("/admin/aulas");
+  return data;
+};
+
+export const crearAdminAula = async (payload) => {
+  const { data } = await api.post("/admin/aulas", payload);
+  return data;
+};
+
+export const getAdminAccesos = async (limit = 50) => {
+  const { data } = await api.get(`/admin/accesos?limit=${limit}`);
+  return data;
+};
+
+export const getAdminHorarios = async () => {
+  const { data } = await api.get("/admin/horarios");
+  return data;
+};

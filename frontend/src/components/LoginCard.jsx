@@ -5,7 +5,7 @@ import { login } from "../services/api";
 const dashboardByRole = {
   estudiante: "/dashboard/estudiante",
   docente:    "/dashboard/profesor",
-  administrador: "/dashboard/admin-aulas",
+  administrador: "/dashboard/admin",
 };
 
 const roleMap = {
