@@ -67,9 +67,9 @@ Sistema **Smart ID + Smart Campus** para control de acceso inteligente a aulas u
 | Auth | PyJWT RS256, passlib bcrypt==4.0.1, RBAC, Redis blacklist |
 | ORM | SQLAlchemy async + asyncpg |
 | Bases de datos | PostgreSQL 16, Redis 7 |
-| Edge (pendiente) | Python 3.11 + OpenCV + pyzbar + paho-mqtt + gpiozero + lgpio |
-| Hardware | Raspberry Pi 5 (8GB/128GB CanaKit), Webcam USB, LEDs |
-| Infra | Docker Compose (solo postgres + redis por ahora) |
+| Edge | Python 3.13 + OpenCV + pyzbar + paho-mqtt + gpiozero + lgpio |
+| Hardware | Raspberry Pi 5 (8GB/128GB CanaKit), Webcam USB, LEDs (GPIO 17=verde, 27=rojo) |
+| Infra | Docker Compose (postgres + redis + mosquitto) |
 
 ---
 
@@ -129,8 +129,12 @@ smart-campus/
 │   └── postgres/
 │       └── init.sql            ✅
 │
-├── edge/                       ⬜ PENDIENTE — corre nativo en Pi 5
-├── mqtt-broker/                ⬜ PENDIENTE
+├── edge/                       ✅ FUNCIONANDO — corre nativo en Pi 5
+│   ├── main.py                 ✅ OpenCV + pyzbar + GPIO + MQTT + short token
+│   ├── requirements.txt        ✅
+│   └── venv/                   ✅ en la Pi (gitignored)
+├── mqtt-broker/                ✅ Mosquitto en Docker
+│   └── mosquitto.conf          ✅
 ├── monitoring/                 ⬜ PENDIENTE
 │
 └── infra/
@@ -150,8 +154,13 @@ smart-campus/
 | POST | `/auth/login` | público | Login con código + password |
 | POST | `/auth/register` | admin | Crear usuario |
 | POST | `/auth/logout` | auth | Revocar token en Redis |
-| POST | `/auth/qr-token?aula_id=X` | auth | Genera QR token 30s + nonce |
+| POST | `/auth/qr-token?aula_id=X` | auth | Genera short code 12 chars → JWT en Redis (30s) |
 | GET | `/auth/me` | auth | Info del usuario actual |
+
+### Acceso Edge
+| Método | Endpoint | Rol | Descripción |
+|---|---|---|---|
+| POST | `/acceso/validar-qr` | público | Resuelve short code → JWT → valida acceso + registra asistencia |
 
 ### Horarios
 | Método | Endpoint | Rol | Descripción |
@@ -239,12 +248,15 @@ smart-campus/
 ```bash
 # 1. Servicios Docker
 cd ~/Projects/smart-campus
-docker compose up postgres redis -d
+docker compose up postgres redis mosquitto -d
 
-# 2. Backend
+# 2. Backend (desarrollo local, solo accesible desde WSL2)
 cd backend
 source venv/bin/activate
 uvicorn app.main:app --reload --port 8000
+
+# 2b. Backend accesible desde la Pi (necesario para pruebas con hardware)
+uvicorn app.main:app --reload --port 8000 --host 0.0.0.0
 
 # 3. Frontend (nueva terminal)
 cd frontend
@@ -255,6 +267,13 @@ npm run dev
 - Frontend: http://localhost:5173
 - Backend Swagger: http://localhost:8000/docs
 
+### Red — acceso de la Pi al backend (WSL2)
+- IP de la Pi: `192.168.1.10`
+- IP de Windows en LAN: `192.168.1.15`
+- IP de WSL2: `172.17.103.168` (puede cambiar al reiniciar)
+- Portproxy activo en Windows: `192.168.1.15:8000 → 172.17.103.168:8000`
+- Para actualizar el portproxy si cambia la IP de WSL2: ver SCRIPTS.md sección 5b
+
 ---
 
 ## ⚠️ Notas técnicas importantes
@@ -262,13 +281,17 @@ npm run dev
 1. **bcrypt fijado en 4.0.1** — versiones más nuevas son incompatibles con passlib
 2. **asyncpg NO soporta `::date` o `::time` con parámetros nombrados** — usar `.isoweekday()` y `.time()` de Python
 3. **Trabajamos en WSL2 Ubuntu**, NO PowerShell
-4. **El edge node NO usa Docker** — corre directo en Pi 5
-5. **gpiozero + lgpio** para GPIO en Pi 5 (RPi.GPIO está deprecado)
+4. **El edge node NO usa Docker** — corre directo en Pi 5 con Python 3.13
+5. **gpiozero + lgpio** para GPIO en Pi 5 (RPi.GPIO está deprecado). Instalar: `sudo apt install swig liblgpio-dev`
 6. **TailwindCSS** con tema naranja (`orange-300` como primario, `orange-400` hover)
 7. **Roles en español**: `estudiante`, `docente`, `administrador`
 8. **Frontend conecta `email` legacy → `codigo` real** (código universitario)
 9. **Validación de hora de clase**: el profesor no puede generar QR si la clase ya terminó
-10. **CORS configurado** para `localhost:5173` y `localhost:3000`
+10. **CORS configurado** para `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`, `127.0.0.1:3000`
+11. **QR usa short token**: el QR muestra un código de 12 chars (ej: `A3F8C2D91B4E`), no el JWT completo. El backend lo resuelve desde Redis.
+12. **Edge node cooldown = 30s**: después de leer un QR la cámara espera 30s antes de procesarlo de nuevo (evita re-lecturas con nonce ya usado)
+13. **Pi sin display**: no usar `cv2.imshow()` salvo que `$DISPLAY` esté definido. El edge node ya lo maneja.
+14. **Backend necesita `--host 0.0.0.0`** para ser accesible desde la Pi (WSL2 por defecto solo escucha en 127.0.0.1)
 
 ---
 
@@ -286,23 +309,31 @@ npm run dev
 
 ---
 
+## ✅ Completado (Bloque 1)
+
+1. **Edge node Pi 5** — OpenCV + pyzbar + GPIO + MQTT + short token ✅ PROBADO CON CÁMARA REAL
+2. **Endpoint `/acceso/validar-qr`** — resuelve short code → JWT → valida + registra ✅
+3. **Mosquitto MQTT broker** — en docker-compose ✅
+4. **Short token QR** — 12 chars en Redis en lugar de JWT completo en el QR ✅
+5. **Dashboard admin** — CRUD usuarios, aulas, horarios, accesos ✅
+
 ## ⬜ Pendiente por construir (en orden)
 
-### Crítico para la tesis
-1. **Edge node Pi 5** — webcam OpenCV + pyzbar + LED + paho-mqtt
-2. **Endpoint `/acceso/validar-qr`** — el que la Pi llama al escanear
+### Bloque 2 — Tiempo real y UX
+1. **WebSockets** en lugar de polling cada 5s (asistencia tiempo real en dashboard profesor)
+2. **Notificación visual/sonora** al pasar asistencia en el dashboard
+3. **PWA real** (manifest.json + service worker)
+4. **LEDs físicos** conectar cables macho-hembra a la protoboard (pendiente conseguir en lab)
 
-### Mejoras
-3. Dashboard del administrador (CRUD usuarios, aulas, reportes)
-4. WebSockets en lugar de polling cada 5s (asistencia tiempo real)
-5. Mosquitto MQTT broker en docker-compose
-6. Notificación visual/sonora al pasar asistencia
-7. PWA real (manifest.json + service worker)
+### Bloque 3 — Seguridad avanzada
+5. **AES-GCM** cifrado adicional en el QR token
+6. **Detección de anomalías** (múltiples intentos fallidos)
 
-### Producción
-8. Dockerfiles backend + frontend
-9. Nginx proxy reverso + HTTPS
-10. Despliegue AWS EC2/ECS
+### Bloque 4 — Producción
+7. **InfluxDB + Grafana** para métricas
+8. **Dockerfiles** backend + frontend
+9. **Nginx** proxy reverso + HTTPS
+10. **Despliegue AWS** EC2/ECS
 
 ---
 
