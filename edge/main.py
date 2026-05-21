@@ -249,12 +249,13 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
         logger.error("No se pudo abrir la cámara. Usa --simulate para modo sin cámara.")
         return
 
-    ultimo_token = None
-    ultimo_ts    = 0
-    COOLDOWN     = 30
-    frame_count  = 0
+    ultimo_token  = None
+    ultimo_ts     = 0
+    COOLDOWN      = 30
+    frame_count   = 0
+    sesion_activa = False
 
-    logger.info("Cámara lista. Esperando QR...")
+    logger.info("Cámara lista. Esperando QR del profesor para abrir sesión...")
 
     try:
         while True:
@@ -265,7 +266,10 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
 
             frame_count += 1
             if frame_count % 100 == 0:
-                logger.info(f"Procesando frames... ({frame_count})")
+                if sesion_activa:
+                    logger.info(f"Procesando frames... ({frame_count}) — sesión activa, esperando estudiantes")
+                else:
+                    logger.info(f"Procesando frames... ({frame_count}) — esperando QR del profesor")
 
             qrs_detectados = pyzbar.decode(frame)
             if qrs_detectados:
@@ -278,7 +282,13 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                     continue
                 ultimo_token = token
                 ultimo_ts    = ahora
-                _procesar_token(token, aula_id, aula_uuid, ip_edge)
+                resultado = _procesar_token_con_resultado(token, aula_id, aula_uuid, ip_edge)
+
+                if not sesion_activa:
+                    if resultado.get("acceso") == "permitido" and resultado.get("rol") == "docente":
+                        sesion_activa = True
+                        logger.info(f"*** SESIÓN ABIERTA — Prof. {resultado.get('nombre','')} ***")
+                        logger.info("*** Listos para registrar estudiantes — pidan pasar sus QR ***")
 
             # Solo mostrar ventana si hay display disponible
             if os.environ.get("DISPLAY"):
