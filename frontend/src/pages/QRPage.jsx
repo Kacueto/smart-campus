@@ -91,13 +91,13 @@ export default function QRPage() {
       </div>
 
       {/* QR */}
-      <div className="bg-white rounded-2xl p-6 shadow-2xl">
+      <div className="bg-white rounded-2xl p-8 shadow-2xl">
         {loading ? (
-          <div className="w-52 h-52 flex items-center justify-center">
+          <div className="w-72 h-72 flex items-center justify-center">
             <p className="text-slate-400 text-sm">Generando QR...</p>
           </div>
         ) : error ? (
-          <div className="w-52 h-52 flex flex-col items-center justify-center gap-4">
+          <div className="w-72 h-72 flex flex-col items-center justify-center gap-4">
             <p className="text-rose-500 text-sm text-center">{error}</p>
             <button onClick={fetchQR} className="flex items-center gap-2 text-orange-400 font-bold text-sm">
               <IconRefresh size={16} />
@@ -105,7 +105,7 @@ export default function QRPage() {
             </button>
           </div>
         ) : (
-          <QRCode value={qrToken} size={208} />
+          <QRCode value={qrToken} size={300} level="L" />
         )}
       </div>
 

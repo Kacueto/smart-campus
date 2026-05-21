@@ -38,6 +38,7 @@ def create_access_token(user_id: str, codigo: str, role: str) -> str:
 
 # ----------------------------------------------------------
 # Generar QR token (TTL 30s + nonce anti-replay)
+# Retorna un código corto de 12 chars que apunta al JWT en Redis
 # ----------------------------------------------------------
 def create_qr_token(user_id: str, codigo: str, role: str, aula_id: str) -> str:
     jti    = str(uuid.uuid4())
@@ -53,7 +54,18 @@ def create_qr_token(user_id: str, codigo: str, role: str, aula_id: str) -> str:
         "exp":     expire,
         "type":    "qr",
     }
-    return jwt.encode(payload, PRIVATE_KEY, algorithm=ALGORITHM)
+    full_jwt = jwt.encode(payload, PRIVATE_KEY, algorithm=ALGORITHM)
+
+    # Guardar JWT en Redis con clave corta (12 chars)
+    short_code = uuid.uuid4().hex[:12].upper()
+    redis_client.setex(f"qr:{short_code}", QR_TOKEN_EXPIRE_SECONDS + 5, full_jwt)
+
+    return short_code
+
+
+def resolve_qr_token(short_code: str) -> Optional[str]:
+    """Resuelve un código corto al JWT completo."""
+    return redis_client.get(f"qr:{short_code}")
 
 # ----------------------------------------------------------
 # Verificar cualquier token

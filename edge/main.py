@@ -10,6 +10,7 @@ Uso:
 """
 
 import argparse
+import os
 import time
 import logging
 import json
@@ -154,15 +155,18 @@ def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
 def _procesar_token_con_resultado(token: str, aula_id: str, aula_uuid: str, ip_edge: str) -> dict:
     logger.info(f"QR recibido (len={len(token)})")
 
-    payload = _validar_jwt_local(token)
-    if payload is None:
-        logger.info("Validación local FALLIDA → LED rojo")
-        _publicar_evento(aula_id, {
-            "resultado": "denegado", "motivo": "jwt_invalido_local",
-            "aula_id": aula_id, "ts": datetime.now(timezone.utc).isoformat()
-        })
-        _activar_led(permitido=False)
-        return {"acceso": "denegado", "motivo": "jwt_invalido_local"}
+    # Si es código corto (≤20 chars) saltar validación local y enviar al backend
+    es_codigo_corto = len(token) <= 20
+    if not es_codigo_corto:
+        payload = _validar_jwt_local(token)
+        if payload is None:
+            logger.info("Validación local FALLIDA → LED rojo")
+            _publicar_evento(aula_id, {
+                "resultado": "denegado", "motivo": "jwt_invalido_local",
+                "aula_id": aula_id, "ts": datetime.now(timezone.utc).isoformat()
+            })
+            _activar_led(permitido=False)
+            return {"acceso": "denegado", "motivo": "jwt_invalido_local"}
 
     resultado = _llamar_backend(token, aula_uuid, ip_edge)
     permitido = resultado.get("acceso") == "permitido"
@@ -247,7 +251,8 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
 
     ultimo_token = None
     ultimo_ts    = 0
-    COOLDOWN     = 3
+    COOLDOWN     = 30
+    frame_count  = 0
 
     logger.info("Cámara lista. Esperando QR...")
 
@@ -258,7 +263,15 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                 time.sleep(0.1)
                 continue
 
-            for qr in pyzbar.decode(frame):
+            frame_count += 1
+            if frame_count % 100 == 0:
+                logger.info(f"Procesando frames... ({frame_count})")
+
+            qrs_detectados = pyzbar.decode(frame)
+            if qrs_detectados:
+                logger.info(f"QR detectado por pyzbar: {len(qrs_detectados)} código(s)")
+
+            for qr in qrs_detectados:
                 token = qr.data.decode("utf-8")
                 ahora = time.time()
                 if token == ultimo_token and (ahora - ultimo_ts) < COOLDOWN:
@@ -267,9 +280,11 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                 ultimo_ts    = ahora
                 _procesar_token(token, aula_id, aula_uuid, ip_edge)
 
-            cv2.imshow("Smart Campus — Lector QR", frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            # Solo mostrar ventana si hay display disponible
+            if os.environ.get("DISPLAY"):
+                cv2.imshow("Smart Campus — Lector QR", frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
     except KeyboardInterrupt:
         logger.info("Detenido por el usuario")

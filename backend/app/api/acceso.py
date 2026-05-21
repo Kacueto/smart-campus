@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 from app.database import get_db
-from app.auth.jwt_handler import verify_token
+from app.auth.jwt_handler import verify_token, resolve_qr_token
 from app import mqtt_client
 import logging
 
@@ -41,8 +41,11 @@ async def validar_qr(req: ScanRequest, db: AsyncSession = Depends(get_db)):
 async def _validar_qr_impl(req: ScanRequest, db: AsyncSession):
     ahora = datetime.now(timezone.utc)
 
-    # 1. Validar JWT (firma, expiración, nonce anti-replay)
-    payload = verify_token(req.qr_token)
+    # 1. Resolver código corto → JWT completo
+    qr_token = resolve_qr_token(req.qr_token) or req.qr_token
+
+    # Validar JWT (firma, expiración, nonce anti-replay)
+    payload = verify_token(qr_token)
     if not payload:
         await _registrar_acceso(db, None, req.aula_id, "denegado", req.ip_edge,
                                 payload=None, motivo="token_invalido_o_expirado")
