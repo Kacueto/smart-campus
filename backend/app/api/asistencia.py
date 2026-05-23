@@ -12,6 +12,7 @@ async def mis_estadisticas(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Calcula el porcentaje de asistencia del estudiante y retorna sus últimas 5 entradas."""
     # Total de clases por semana (inscripciones)
     total = await db.execute(text("""
         SELECT COUNT(*) as total

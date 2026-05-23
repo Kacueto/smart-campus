@@ -24,6 +24,7 @@ redis_client = redis.from_url("redis://:redispassword123@localhost:6379/0", deco
 # Generar access token (login)
 # ----------------------------------------------------------
 def create_access_token(user_id: str, codigo: str, role: str) -> str:
+    """Genera un JWT RS256 de acceso con TTL de 30 minutos."""
     jti = str(uuid.uuid4())
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
@@ -41,6 +42,7 @@ def create_access_token(user_id: str, codigo: str, role: str) -> str:
 # Retorna un código corto de 12 chars que apunta al JWT en Redis
 # ----------------------------------------------------------
 def create_qr_token(user_id: str, codigo: str, role: str, aula_id: str) -> str:
+    """Genera un short code de 12 chars que apunta al JWT QR almacenado en Redis (TTL 30s)."""
     jti    = str(uuid.uuid4())
     nonce  = str(uuid.uuid4())
     expire = datetime.now(timezone.utc) + timedelta(seconds=QR_TOKEN_EXPIRE_SECONDS)
@@ -71,6 +73,7 @@ def resolve_qr_token(short_code: str) -> Optional[str]:
 # Verificar cualquier token
 # ----------------------------------------------------------
 def verify_token(token: str) -> Optional[dict]:
+    """Verifica firma RS256, blacklist y nonce anti-replay. Retorna payload o None si inválido."""
     try:
         payload = jwt.decode(token, PUBLIC_KEY, algorithms=[ALGORITHM])
 
@@ -101,4 +104,5 @@ def verify_token(token: str) -> Optional[dict]:
 # Revocar token (logout / blacklist)
 # ----------------------------------------------------------
 def revoke_token(jti: str, expire_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES):
+    """Agrega el JTI a la blacklist de Redis para invalidar el token en logout."""
     redis_client.setex(f"blacklist:{jti}", expire_minutes * 60, "revoked")

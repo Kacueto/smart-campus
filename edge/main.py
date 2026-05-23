@@ -42,6 +42,7 @@ _nonce_cache: dict[str, float] = {}
 
 
 def _nonce_ya_usado(nonce: str) -> bool:
+    """Verifica si el nonce ya fue procesado (anti-replay local en caché de 60s)."""
     ahora = time.time()
     # Limpiar nonces viejos
     for k in list(_nonce_cache):
@@ -71,6 +72,7 @@ except Exception as e:
 
 
 def _activar_led(permitido: bool):
+    """Enciende LED verde (acceso permitido) o rojo (denegado) durante LED_DURACION segundos."""
     if _gpio_disponible:
         led = led_verde if permitido else led_rojo
         logger.info(f"LED {'VERDE' if permitido else 'ROJO'} encendido por {LED_DURACION}s")
@@ -91,6 +93,7 @@ _mqtt_client: mqtt.Client = None
 
 
 def _init_mqtt(aula_id: str):
+    """Inicializa el cliente MQTT y se conecta al broker; falla silenciosamente si no está disponible."""
     global _mqtt_client
     _mqtt_client = mqtt.Client(client_id=f"edge-{aula_id}", protocol=mqtt.MQTTv311)
 
@@ -109,6 +112,7 @@ def _init_mqtt(aula_id: str):
 
 
 def _publicar_evento(aula_id: str, evento: dict):
+    """Publica el resultado del escaneo en el topic MQTT campus/aula/{aula_id}/scan."""
     if _mqtt_client and _mqtt_client.is_connected():
         topic = f"campus/aula/{aula_id}/scan"
         _mqtt_client.publish(topic, json.dumps(evento), qos=1)
@@ -116,6 +120,7 @@ def _publicar_evento(aula_id: str, evento: dict):
 
 # ── Validación local del JWT ──────────────────────────────────────────────────
 def _validar_jwt_local(token: str) -> dict | None:
+    """Valida la firma RS256 y el nonce del JWT localmente antes de llamar al backend."""
     try:
         payload = jwt.decode(token, PUBLIC_KEY, algorithms=["RS256"])
         if payload.get("type") != "qr":
@@ -135,6 +140,7 @@ def _validar_jwt_local(token: str) -> dict | None:
 
 # ── Llamada al backend ────────────────────────────────────────────────────────
 def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
+    """Envía el token al backend para validación final y registro de asistencia/acceso."""
     try:
         resp = requests.post(
             f"{BACKEND_URL}/acceso/validar-qr",
@@ -153,6 +159,7 @@ def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
 
 # ── Bucle principal ───────────────────────────────────────────────────────────
 def _procesar_token_con_resultado(token: str, aula_id: str, aula_uuid: str, ip_edge: str) -> dict:
+    """Orquesta la validación completa del QR: local (si es JWT) → backend → LED → MQTT. Retorna el resultado."""
     logger.info(f"QR recibido (len={len(token)})")
 
     # Si es código corto (≤20 chars) saltar validación local y enviar al backend
@@ -194,6 +201,7 @@ def _procesar_token(token: str, aula_id: str, aula_uuid: str, ip_edge: str):
 
 
 def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: bool = False):
+    """Bucle principal del edge node: inicializa MQTT y cámara, procesa QRs en tiempo real."""
     global BACKEND_URL
     BACKEND_URL = backend_url
 

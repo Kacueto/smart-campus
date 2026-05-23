@@ -13,6 +13,7 @@ async def mis_clases_hoy(
     current_user: TokenData = Depends(require_role(UserRole.docente)),
     db: AsyncSession = Depends(get_db)
 ):
+    """Retorna las clases del docente para el día actual según la zona horaria de Bogotá."""
     result = await db.execute(text("""
         SELECT
             h.id,
@@ -60,6 +61,7 @@ async def todas_mis_clases(
     current_user: TokenData = Depends(require_role(UserRole.docente)),
     db: AsyncSession = Depends(get_db)
 ):
+    """Retorna todas las clases activas del docente en el semestre, ordenadas por día y hora."""
     result = await db.execute(text("""
         SELECT
             h.id,
@@ -107,6 +109,7 @@ async def generar_qr(
     current_user: TokenData = Depends(require_role(UserRole.docente)),
     db: AsyncSession = Depends(get_db),
 ):
+    """Inicia sesión de asistencia: valida que la clase no haya terminado y genera el QR del profesor."""
     # Verificar que la clase no haya terminado
     from datetime import datetime
     ahora = datetime.now().strftime("%H:%M")
@@ -143,6 +146,7 @@ async def asistencia_sesion(
     current_user: TokenData = Depends(require_role(UserRole.docente)),
     db: AsyncSession = Depends(get_db)
 ):
+    """Retorna los estudiantes que registraron asistencia en las últimas 2 horas para el horario dado."""
     result = await db.execute(text("""
         SELECT
             u.nombre,

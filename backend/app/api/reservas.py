@@ -22,6 +22,7 @@ async def aulas_disponibles(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Retorna aulas sin clase ni reserva activa en el rango fecha/hora solicitado."""
     inicio_dt = datetime.strptime(f"{fecha} {hora_inicio}", "%Y-%m-%d %H:%M")
     fin_dt    = inicio_dt + timedelta(hours=duracion_horas)
     dia_semana = inicio_dt.isoweekday()  # 1=lunes ... 7=domingo
@@ -70,6 +71,7 @@ async def crear_reserva(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Crea una reserva verificando traslapes con otras reservas y clases programadas."""
     if data.duracion_horas not in [1, 2, 3]:
         raise HTTPException(status_code=400, detail="La duración debe ser 1, 2 o 3 horas")
 
@@ -124,6 +126,7 @@ async def mis_reservas(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Retorna las reservas activas y futuras del usuario autenticado."""
     result = await db.execute(text("""
         SELECT r.id, r.inicio, r.fin, r.estado,
                a.nombre as aula, a.edificio, a.codigo as aula_codigo
@@ -154,6 +157,7 @@ async def cancelar_reserva(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Cancela una reserva activa del usuario siempre que no haya comenzado aún."""
     result = await db.execute(text("""
         SELECT id, inicio FROM reservas
         WHERE id = :id AND user_id = :user_id AND estado = 'activa'

@@ -12,6 +12,7 @@ async def mis_clases(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Retorna el horario semanal completo del estudiante autenticado, ordenado por día y hora."""
     result = await db.execute(text("""
         SELECT 
             h.id,

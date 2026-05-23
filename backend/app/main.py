@@ -13,6 +13,7 @@ from app import mqtt_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Ciclo de vida de la app: inicia y detiene el cliente MQTT al arrancar/apagar."""
     mqtt_client.start_mqtt()
     yield
     mqtt_client.stop_mqtt()
@@ -48,4 +49,5 @@ app.include_router(admin_router)
 
 @app.get("/")
 def root():
+    """Health check básico de la API."""
     return {"status": "ok", "proyecto": "Smart Campus"}

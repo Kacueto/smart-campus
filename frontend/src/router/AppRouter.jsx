@@ -6,6 +6,7 @@ import TeacherDashboard from "../pages/TeacherDashboard";
 import QRPage from "../pages/QRPage";
 import AdminDashboard from "../pages/AdminDashboard";
 
+/** Define las rutas de la SPA: home, logins por rol, dashboards y página QR. */
 export default function AppRouter() {
   return (
     <BrowserRouter>

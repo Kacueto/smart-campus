@@ -6,6 +6,7 @@ from app.auth.schemas import TokenData, UserRole
 security = HTTPBearer()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData:
+    """Extrae y valida el Bearer token del header Authorization. Lanza 401 si es inválido."""
     token = credentials.credentials
     payload = verify_token(token)
 
@@ -24,6 +25,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     )
 
 def require_role(*roles: UserRole):
+    """Factoría de dependencia que lanza 403 si el rol del usuario no está en la lista permitida."""
     def checker(current_user: TokenData = Depends(get_current_user)) -> TokenData:
         if current_user.role not in roles:
             raise HTTPException(

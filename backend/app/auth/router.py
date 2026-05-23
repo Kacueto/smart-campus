@@ -13,6 +13,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    """Autentica al usuario con código universitario y contraseña. Retorna JWT de acceso y rol."""
     result = await db.execute(select(User).where(User.codigo == data.codigo))
     user = result.scalar_one_or_none()
 
@@ -37,6 +38,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/qr-token", response_model=QRTokenResponse)
 async def generate_qr_token(aula_id: str, current_user: TokenData = Depends(get_current_user)):
+    """Genera un short code QR de 12 chars para el aula indicada (TTL 30s)."""
     qr_token = create_qr_token(
         current_user.user_id,
         current_user.codigo,
@@ -47,11 +49,13 @@ async def generate_qr_token(aula_id: str, current_user: TokenData = Depends(get_
 
 @router.post("/logout")
 async def logout(current_user: TokenData = Depends(get_current_user)):
+    """Revoca el token actual agregando su JTI a la blacklist de Redis."""
     revoke_token(current_user.jti)
     return {"message": "Sesión cerrada correctamente"}
 
 @router.get("/me")
 async def me(current_user: TokenData = Depends(get_current_user)):
+    """Retorna los datos del usuario autenticado extraídos del token."""
     return current_user
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 
+/** Muestra la hora y fecha actual en tiempo real con locale colombiano, actualizándose cada segundo. */
 export default function Clock() {
   const [time, setTime] = useState(new Date());
 

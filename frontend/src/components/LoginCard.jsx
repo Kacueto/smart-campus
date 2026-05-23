@@ -14,6 +14,7 @@ const roleMap = {
   classroomAdmin: "administrador",
 };
 
+/** Formulario de login que valida el rol del usuario antes de redirigir al dashboard correspondiente. */
 export default function LoginCard({ roleConfig, role }) {
   const navigate = useNavigate();
 
@@ -21,12 +22,14 @@ export default function LoginCard({ roleConfig, role }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  /** Actualiza el campo del formulario y limpia el mensaje de error. */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrorMessage("");
   };
 
+  /** Llama al API de login, verifica el rol esperado y redirige al dashboard si es correcto. */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
