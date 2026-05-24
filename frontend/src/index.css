@@ -1,20 +1,38 @@
 @import "tailwindcss";
 
-:root {
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+@theme {
+  /* Fonts */
+  --font-title: "Bebas Neue", sans-serif;
+  --font-body: "Bellota Text", sans-serif;
 
-  color: #172033;
-  background: #eef3f8;
+  /* Lirio colors */
+  --color-bg: #F8F8FF;
+  --color-title: #433C78;
+  --color-body: #5F62BA;
+
+  /* Student colors */
+  --color-st-1: #ABEAE0;
+  --color-st-2: #1C9995;
+  --color-st-3: #177D7A;
+
+  /* Teacher colors */
+  --color-tc-1: #CCD3FC;
+  --color-tc-2: #6877D9;
+  --color-tc-3: #3F4EB0;
+
+  /* Administrator colors */
+  --color-ad-1: #F0C09C;
+  --color-ad-2: #B56930;
+  --color-ad-3: #8B5227;
+}
+
+:root {
+    font-family: var(--font-body);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  --radius-lg: 28px;
-  --radius-md: 18px;
 
   --shadow-soft: 0 24px 80px rgba(23, 32, 51, 0.14);
 }
@@ -24,7 +42,6 @@
 }
 
 body {
-  margin: 0;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -41,17 +58,6 @@ input {
 
 button {
   cursor: pointer;
-}
-
-.home-page {
-  min-height: 100vh;
-  padding: 48px;
-  display: grid;
-  align-content: center;
-  gap: 32px;
-  background:
-    radial-gradient(circle at top left, rgba(86, 135, 255, 0.2), transparent 34%),
-    linear-gradient(135deg, #f8fbff 0%, #edf3f9 100%);
 }
 
 .home-hero {
@@ -177,71 +183,6 @@ button {
 .auth-footer-note strong {
   color: white;
 }
-
-/*.login-card {
-  width: min(100%, 420px);
-  padding: 32px;
-  border-radius: var(--radius-lg);
-  background: white;
-  box-shadow: var(--shadow-soft);
-  border: 1px solid rgba(23, 32, 51, 0.08);
-}
-
-.login-card-header span {
-  display: inline-flex;
-  padding: 7px 12px;
-  margin-bottom: 18px;
-  border-radius: 999px;
-  color: var(--accent-main);
-  background: var(--accent-soft);
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.login-card-header h2 {
-  margin: 0;
-  font-size: 2rem;
-  letter-spacing: -0.045em;
-}
-
-.login-card-header p {
-  margin: 10px 0 0;
-  color: #6a768a;
-  line-height: 1.6;
-}
-
-.login-form {
-  display: grid;
-  gap: 18px;
-}
-
-.login-form label {
-  display: grid;
-  gap: 8px;
-  color: #303b50;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.login-form input {
-  width: 100%;
-  padding: 14px 15px;
-  border-radius: 16px;
-  border: 1px solid #d9e1ec;
-  color: #172033;
-  background: #f8fafc;
-  outline: none;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    background 160ms ease;
-}
-
-.login-form input:focus {
-  border-color: var(--accent-main);
-  background: white;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-main) 16%, transparent);
-}*/
 
 .form-options {
   display: flex;

@@ -2,39 +2,40 @@ import { Link } from "react-router-dom";
 import { IconChevronLeft } from "@tabler/icons-react";
 
 const colorClasses = {
-  orange: {
-    background: "bg-orange-200",
-    text: "text-orange-900",
-    muted: "text-orange-950/70",
-    icon: "text-orange-900",
+  student: {
+    background: "bg-st-1",
+    text: "text-st-3",
+    muted: "text-st-3/75",
+    icon: "text-st-2",
   },
-  blue: {
-    background: "bg-blue-200",
-    text: "text-blue-900",
-    muted: "text-blue-950/70",
-    icon: "text-blue-900",
+  teacher: {
+    background: "bg-tc-1",
+    text: "text-tc-3",
+    muted: "text-tc-3/75",
+    icon: "text-tc-2",
   },
-  green: {
-    background: "bg-green-200",
-    text: "text-green-900",
-    muted: "text-green-950/70",
-    icon: "text-green-900",
+  admin: {
+    background: "bg-ad-1",
+    text: "text-ad-3",
+    muted: "text-ad-3/75",
+    icon: "text-ad-2",
   },
 };
 
 export default function AuthLayout({ roleConfig, children }) {
-  const colors = colorClasses[roleConfig.color] ?? colorClasses.orange;
+  const colors = colorClasses[roleConfig.color] ?? colorClasses.student;
 
   return (
-    <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)]">
-      <section className={`${colors.background} flex flex-col gap-8 p-6 sm:p-8 lg:p-10`}>
-        <Link to="/" className={`flex h-10 w-10 items-center justify-center rounded ${colors.icon}`} aria-label="Volver al inicio">
-          <IconChevronLeft stroke={2} />
+    <main className="min-h-screen flex flex-col justify-center gap-6 bg-bg font-body lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)]">
+      <section className={`flex flex-col gap-4 p-6 sm:p-8 lg:min-h-screen lg:p-10 pb-0`}>
+        <Link to="/" className={`flex items-center`} aria-label="Volver al inicio">
+          <span className={`${colors.icon}`}>
+            <IconChevronLeft size={28} stroke={2} />
+          </span>
         </Link>
 
-        <div className="flex max-w-2xl flex-1 flex-col justify-center gap-3">
-
-          <h1 className={`text-3xl font-semibold tracking-[-0.04em] sm:text-4xl md:text-5xl ${colors.text}`}>
+        <div className="flex max-w-2xl flex-1 flex-col justify-center gap-2">
+          <h1 className={`font-title text-4xl font-bold leading-none tracking-normal sm:text-6xl md:text-7xl ${colors.text}`}>
             {roleConfig.title}
           </h1>
 
@@ -44,7 +45,7 @@ export default function AuthLayout({ roleConfig, children }) {
         </div>
       </section>
 
-      <section className="flex">
+      <section className={`flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8 pt-0`}>
         {children}
       </section>
     </main>
