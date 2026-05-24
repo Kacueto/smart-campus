@@ -182,7 +182,7 @@ export default function TeacherDashboard() {
       </header>
 
       <section className="mx-auto grid max-w-7xl gap-6 p-4 sm:p-6">
-        <p className="font-title text-4xl font-bold text-title">
+        <p className="font-title text-5xl font-bold text-tc-2">
           Hola, {authUser.nombre}
         </p>
 

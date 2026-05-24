@@ -323,7 +323,7 @@ export default function StudentDashboard() {
             </section>
 
             <section className="p-4">
-              <h2 className="font-title text-3xl font-bold text-st-3">
+              <h2 className="font-title text-3xl font-bold text-st-2">
                 Últimas asistencias
               </h2>
 
@@ -365,7 +365,7 @@ export default function StudentDashboard() {
           </div>
 
           <aside className="p-4">
-            <h2 className="font-title text-3xl font-bold text-st-3">
+            <h2 className="font-title text-3xl font-bold text-st-2">
               Reservar aula
             </h2>
 
@@ -501,7 +501,7 @@ export default function StudentDashboard() {
                   misReservas.map((r) => (
                     <article
                       key={r.id}
-                      className="flex items-start justify-between gap-2 rounded-lg border border-title/10 bg-white p-3 text-sm"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-title/10 bg-white p-3 text-sm"
                     >
                       <div>
                         <p className="font-bold text-title">{r.aula}</p>
@@ -513,7 +513,7 @@ export default function StudentDashboard() {
 
                       <button
                         onClick={() => handleCancelar(r.id)}
-                        className="shrink-0 text-xs font-bold text-rose-500"
+                        className="shrink-0 text-xs font-bold text-[#FD7878]"
                       >
                         Cancelar
                       </button>
