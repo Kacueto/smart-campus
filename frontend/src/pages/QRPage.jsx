@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { QRCode } from "react-qr-code";
-import { IconArrowLeft, IconRefresh, IconCopy, IconCheck } from "@tabler/icons-react";
+import { IconChevronLeft, IconRefresh, IconCopy, IconCheck } from "@tabler/icons-react";
 import { generateQRToken } from "../services/api";
 
 export default function QRPage() {
@@ -61,7 +61,7 @@ export default function QRPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center text-white">
           <p className="text-lg font-bold">No se especificó un aula.</p>
-          <button onClick={() => navigate(-1)} className="mt-4 text-orange-300 underline">
+          <button onClick={() => navigate(-1)} className="mt-4 text-blue-300 underline">
             Volver
           </button>
         </div>
@@ -70,23 +70,18 @@ export default function QRPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-6 gap-8">
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center p-6 gap-8">
 
       {/* Header */}
       <div className="w-full max-w-sm flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition"
-        >
-          <IconArrowLeft size={20} />
-          <span className="text-sm font-bold">Volver</span>
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-400 hover:text-white transition">
+          <IconChevronLeft size={20} />
         </button>
-        <p className="text-sm font-bold text-slate-400">Smart Campus</p>
       </div>
 
       {/* Info clase */}
       <div className="text-center">
-        <p className="text-2xl font-bold text-orange-300">{materia ?? "Mi QR"}</p>
+        <p className="text-2xl font-bold text-blue-200">{materia ?? "Mi QR"}</p>
         <p className="text-sm text-slate-400 mt-1">{aula ?? ""}</p>
       </div>
 

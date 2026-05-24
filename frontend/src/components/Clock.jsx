@@ -23,9 +23,9 @@ export default function Clock() {
   });
 
   return (
-    <div className="text-right">
-      <p className="text-sm font-bold text-slate-900">{hora}</p>
+    <div className="text-left">
       <p className="text-xs text-slate-500 capitalize">{fecha}</p>
+      <p className="text-sm font-bold text-slate-900">{hora}</p>
     </div>
   );
 }

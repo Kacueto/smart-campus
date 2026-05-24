@@ -148,11 +148,7 @@ export default function TeacherDashboard() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white px-4 py-3">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold text-slate-900">Smart Campus</p>
-            <p className="text-xs text-slate-500">Panel del profesor</p>
           <Clock />
-          </div>
           <button onClick={handleLogout} className="flex items-center gap-1.5 px-2 py-1 text-sm font-bold text-rose-500">
             <IconLogout2 size={18} />
             Cerrar sesión

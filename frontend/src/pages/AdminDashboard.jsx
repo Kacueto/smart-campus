@@ -28,10 +28,10 @@ function Badge({ text, className }) {
 
 function StatCard({ label, value, sub }) {
   return (
-    <div className="rounded border border-slate-200 bg-white p-4">
+    <div className="flex items-center justify-between rounded border border-slate-200 bg-white p-4">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 text-3xl font-bold text-slate-900">{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
+      {/* {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}*/}
     </div>
   );
 }
@@ -554,11 +554,7 @@ export default function AdminDashboard() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white px-4 py-3">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold text-slate-900">Smart Campus</p>
-            <p className="text-xs text-slate-500">Panel de administración</p>
-            <Clock />
-          </div>
+          <Clock />
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 px-2 py-1 text-sm font-bold text-rose-500"
