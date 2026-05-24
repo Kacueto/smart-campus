@@ -26,7 +26,7 @@ export default function AuthLayout({ roleConfig, children }) {
   const colors = colorClasses[roleConfig.color] ?? colorClasses.student;
 
   return (
-    <main className="min-h-screen flex flex-col justify-center gap-6 bg-bg font-body lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)]">
+    <main className="min-h-screen flex flex-col justify-center gap-6 bg-white font-body lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(380px,520px)]">
       <section className={`flex flex-col gap-4 p-6 sm:p-8 lg:min-h-screen lg:p-10 pb-0`}>
         <Link to="/" className={`flex items-center`} aria-label="Volver al inicio">
           <span className={`${colors.icon}`}>

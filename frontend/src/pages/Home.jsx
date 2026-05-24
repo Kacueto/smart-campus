@@ -145,7 +145,7 @@ export default function Home() {
             aria-label="Cerrar modal"
           />
 
-          <article className="relative z-10 grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg bg-bg md:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]">
+          <article className="relative z-10 grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg bg-white md:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]">
             <section className={`${selectedColors.background} hidden flex-col justify-between p-6 md:flex`}>
               <button type="button" onClick={closeModal} className={`flex size-10 items-center justify-center rounded-lg ${selectedColors.text}`} aria-label="Cerrar modal">
                 <IconX size={24} stroke={2} />
@@ -166,17 +166,14 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="max-h-[92vh] overflow-y-auto p-4 sm:p-6">
-              <div className="mb-5 flex items-start justify-between gap-4 md:hidden">
-                <div>
+            <section className="max-h-[92vh] overflow-y-auto p-4 sm:p-6 flex flex-col gap-6">
+              <div className="flex flex-col items-start justify-between md:hidden">
                   <p className={`font-title text-2xl ${selectedColors.text}`}>
-                    {selectedRoleConfig.label}
-                  </p>
-
-                  <p className={`mt-1 text-sm ${selectedColors.muted}`}>
                     {selectedRoleConfig.title}
                   </p>
-                </div>
+                  <p className={`max-w-md text-sm ${selectedColors.muted}`}>
+                    {selectedRoleConfig.description}
+                  </p>
               </div>
 
               <LoginCard roleConfig={selectedRoleConfig} role={selectedRole} />

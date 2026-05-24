@@ -20,22 +20,25 @@ const colorClasses = {
     card: "bg-st-1 text-st-3 p-4 rounded-lg",
     focus: "focus:border-st-2 focus:ring-st-1",
     button: "bg-st-3 text-st-1",
-    buttonText: "text-st-3",
+    buttonKey: "bg-st-1 text-st-3",
     demoTitle: "text-st-3",
+    input: "border border-st-1",
   },
   teacher: {
     card: "bg-tc-1 text-tc-3 p-4 rounded-lg",
     focus: "focus:border-tc-2 focus:ring-tc-1",
     button: "bg-tc-3 text-tc-1",
-    buttonText: "text-tc-3",
+    buttonKey: "bg-tc-1 text-tc-3",
     demoTitle: "text-tc-3",
+    input: "border border-tc-1",
   },
   admin: {
     card: "bg-ad-1 text-ad-3 p-4 rounded-lg",
     focus: "focus:border-ad-2 focus:ring-ad-1",
     button: "bg-ad-3 text-ad-1",
-    buttonText: "text-ad-3",
+    buttonKey: "bg-ad-1 text-ad-3",
     demoTitle: "text-ad-3",
+    input: "border border-ad-1",
   },
 };
 
@@ -120,15 +123,15 @@ export default function LoginCard({ roleConfig, role }) {
 
   return (
     <article className="w-full max-w-105 flex flex-col gap-6">
-      <form className={`grid gap-4 ${colors.card}`} onSubmit={handleSubmit}>
-        <label className="grid gap-2 text-sm font-bold">
+      <form className={`grid gap-2 ${colors.demoTitle}`} onSubmit={handleSubmit}>
+        <label className="grid gap-1 text-sm font-black">
           Código universitario
-          <input className={`w-full rounded-lg border border-transparent bg-white/80 px-4 py-3.5 font-body outline-none placeholder:text-body/50 focus:ring-4 ${colors.focus}`} type="text" name="codigo" placeholder="Ej: 2024001" value={formData.codigo} onChange={handleChange} required/>
+          <input className={`w-full rounded-lg ${colors.input} px-4 py-3 font-body outline-none focus:ring-4 ${colors.focus}`} type="text" name="codigo" placeholder="Ej: 2024001" value={formData.codigo} onChange={handleChange} required/>
         </label>
 
-        <label className="grid gap-2 text-sm font-bold">
+        <label className="grid gap-1 text-sm font-black">
           Contraseña
-          <input className={`w-full rounded-lg border border-transparent bg-white/80 px-4 py-3.5 font-body outline-none placeholder:text-body/50 focus:ring-4 ${colors.focus}`} type="password" name="password" placeholder="Ingresa tu contraseña" value={formData.password} onChange={handleChange} required/>
+          <input className={`w-full rounded-lg ${colors.input} px-4 py-3 font-body outline-none focus:ring-4 ${colors.focus}`} type="password" name="password" placeholder="Ingresa tu contraseña" value={formData.password} onChange={handleChange} required/>
         </label>
 
         {errorMessage && (
@@ -143,26 +146,26 @@ export default function LoginCard({ roleConfig, role }) {
       </form>
 
       <div className={`text-xs leading-5`}>
-        <div className="flex gap-2 sm:flex-row sm:items-start justify-between">
+        <div className="flex gap-2 sm:flex-row sm:items-start justify-between items-center">
           <div>
             <p className={`text-sm font-black ${colors.demoTitle}`}>
               Credenciales demo
             </p>
 
             {role === "student" && (
-              <p className="">Código: 2024001 · Contraseña: 1234</p>
+              <p className={`${colors.demoTitle}`}>Código: 2024001 · Contraseña: 1234</p>
             )}
 
             {role === "teacher" && (
-              <p className="">Código: DOC001 · Contraseña: 1234</p>
+              <p className={`${colors.demoTitle}`}>Código: DOC001 · Contraseña: 1234</p>
             )}
 
             {role === "classroomAdmin" && (
-              <p className="">Código: ADM001 · Contraseña: 1234</p>
+              <p className={`${colors.demoTitle}`}>Código: ADM001 · Contraseña: 1234</p>
             )}
           </div>
 
-          <button type="button" onClick={fillDemoCredentials} className={`text-xs font-bold ${colors.buttonText} sm:w-auto`}>
+          <button type="button" onClick={fillDemoCredentials} className={`text-xs font-bold ${colors.buttonKey} p-2 rounded-lg sm:w-auto`}>
             <IconKey />
           </button>
         </div>

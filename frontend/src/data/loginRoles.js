@@ -13,7 +13,7 @@ export const loginRoles = {
     label: "Estudiante",
     title: "Acceso para estudiantes",
     description:
-      "Usa tu correo institucional de estudiante y consulta tus clases, confirma asistencia y revisa el estado de tus reservas o espacios asignados.",
+      "Confirma asistencia y revisa el estado de tus reservas o espacios asignados.",
     redirectLabel: "Ingresar como estudiante",
     helperText: "Usa tu correo institucional de estudiante.",
     color: "student",
