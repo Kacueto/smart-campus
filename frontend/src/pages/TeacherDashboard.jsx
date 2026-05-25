@@ -1,11 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck } from "@tabler/icons-react";
+import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { QRCode } from "react-qr-code";
 import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, getAsistenciaSesion } from "../services/api";
 import Clock from "../components/Clock";
 
+function PaginationControls({ page, totalPages, onPageChange }) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="mt-3 flex items-center justify-end gap-4 text-xs">
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
+        className="font-bold text-title disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <IconChevronLeft />
+      </button>
+
+      <span className="font-bold text-body">
+        Página {page} de {totalPages}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page === totalPages}
+        className="font-bold text-title disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <IconChevronRight />
+      </button>
+    </div>
+  );
+}
+
 export default function TeacherDashboard() {
+  const ITEMS_PER_PAGE = 5;
   const navigate = useNavigate();
 
   const authUser = useMemo(() => {
@@ -34,6 +65,8 @@ export default function TeacherDashboard() {
   const [tiempoRestante, setTiempoRestante] = useState(0);
   const [asistentes, setAsistentes] = useState([]);
   const [qrExpira, setQrExpira] = useState(30);
+
+  const [allClassesPage, setAllClassesPage] = useState(1);
 
   const timerRef = useRef(null);
   const qrTimerRef = useRef(null);
@@ -170,6 +203,17 @@ export default function TeacherDashboard() {
     7: "Domingo",
   };
 
+  const allClassesTotalPages = Math.ceil(todasClases.length / ITEMS_PER_PAGE);
+
+  const paginatedAllClasses = todasClases.slice(
+    (allClassesPage - 1) * ITEMS_PER_PAGE,
+    allClassesPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setAllClassesPage(1);
+  }, [todasClases]);
+
   return (
     <main className="min-h-screen bg-bg font-body text-body">
       <header className="border-b border-title/10 bg-bg px-4 py-3">
@@ -250,32 +294,44 @@ export default function TeacherDashboard() {
 
               {clasesLoading ? (
                 <p className="text-sm text-body/60">Cargando...</p>
+              ) : todasClases.length === 0 ? (
+                <p className="text-sm text-body/60">No tienes clases registradas.</p>
               ) : (
-                <div className="grid gap-2">
-                  {todasClases.map((clase) => (
-                    <article key={clase.id} className="flex flex-col justify-between gap-1 rounded-lg border border-title/10 bg-white p-3">
-                      <div className="flex items- justify-between gap-2">
-                        <p className="text-sm font-bold text-title">
-                          {clase.materia}
-                        </p>
-                        <span className="text-body flex items-center gap-1">
-                          <IconUsers size={16} />
-                          {clase.total_estudiantes}
-                        </span>
+                <>
+                  <div className="grid gap-2">
+                    {paginatedAllClasses.map((clase) => (
+                      <article
+                        key={clase.id}
+                        className="flex flex-col justify-between gap-1 rounded-lg border border-title/10 bg-white p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-title">
+                            {clase.materia}
+                          </p>
 
-                      </div>
+                          <span className="flex items-center gap-1 text-body">
+                            <IconUsers size={16} />
+                            {clase.total_estudiantes}
+                          </span>
+                        </div>
 
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-body">
-                          {dias[clase.dia_semana]} {clase.horario}
-                        </p>
-                        <p className="text-xs text-body">
-                          {clase.aula}
-                        </p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-body">
+                            {dias[clase.dia_semana]} {clase.horario}
+                          </p>
+
+                          <p className="text-xs text-body">{clase.aula}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <PaginationControls
+                    page={allClassesPage}
+                    totalPages={allClassesTotalPages}
+                    onPageChange={setAllClassesPage}
+                  />
+                </>
               )}
             </section>
           </div>

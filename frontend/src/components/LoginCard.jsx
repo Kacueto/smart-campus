@@ -122,7 +122,7 @@ export default function LoginCard({ roleConfig, role }) {
   };
 
   return (
-    <article className="w-full max-w-105 flex flex-col gap-6">
+    <article className="w-full flex flex-col gap-6">
       <form className={`grid gap-2 ${colors.demoTitle}`} onSubmit={handleSubmit}>
         <label className="grid gap-1 text-sm font-black">
           Código universitario

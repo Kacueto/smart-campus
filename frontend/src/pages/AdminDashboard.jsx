@@ -635,7 +635,7 @@ export default function AdminDashboard() {
       </header>
 
       <section className="mx-auto grid w-full max-w-7xl min-w-0 gap-4 p-4 sm:p-6">
-        <p className="font-title text-4xl font-bold text-title">
+        <p className="font-title text-5xl font-bold text-title">
           Hola, {authUser.nombre}
         </p>
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { IconLogout2, IconQrcode } from "@tabler/icons-react";
+import { IconLogout2, IconQrcode, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import {
   getMisEstadisticas,
   getMisClases,
@@ -13,25 +13,61 @@ import Clock from "../components/Clock";
 
 function ClassCard({ item }) {
   return (
-    <article className="grid gap-2 rounded-lg border border-title/10 bg-white p-3 md:grid-cols-[140px_1fr_auto]">
+    <article className="flex flex-col md:flex-row items-start rounded-lg border border-title/10 bg-white p-3 md:flex md:items-center md:justify-between lg:gap-6">
       <div className="min-w-0">
-        <h3 className="font-title text-xl text-title">{item.materia}</h3>
-        <p className="text-sm text-body">{item.profesor}</p>
+        <h3 className="truncate font-title text-xl text-title">
+          {item.materia}
+        </h3>
+
+        <p className="truncate text-sm text-body">{item.profesor}</p>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 font-bold">
+      <div className="flex justify-between md:flex-col w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-bold">
           <p className="text-sm text-title">{item.dia}</p>
           <p className="text-sm text-title">{item.horario}</p>
         </div>
 
-        <p className="text-sm font-medium text-body">{item.aula}</p>
+        <p className="text-sm font-medium text-body md:text-right">
+          {item.aula}
+        </p>
       </div>
     </article>
   );
 }
 
+function PaginationControls({ page, totalPages, onPageChange }) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="mt-3 flex items-center justify-end gap-4 text-xs">
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
+        className="font-bold text-title disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <IconChevronLeft />
+      </button>
+
+      <span className="font-bold text-body">
+        Página {page} de {totalPages}
+      </span>
+
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page === totalPages}
+        className="font-bold text-title disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <IconChevronRight />
+      </button>
+    </div>
+  );
+}
+
 export default function StudentDashboard() {
+  const ITEMS_PER_PAGE = 5;
   const navigate = useNavigate();
 
   const authUser = useMemo(() => {
@@ -55,6 +91,9 @@ export default function StudentDashboard() {
   const [statsError, setStatsError] = useState(null);
   const [clases, setClases] = useState([]);
   const [clasesLoading, setClasesLoading] = useState(true);
+  const [todayClassesPage, setTodayClassesPage] = useState(1);
+  const [weekClassesPage, setWeekClassesPage] = useState(1);
+  const [attendancePage, setAttendancePage] = useState(1);
 
   const fetchMisReservas = () => {
     setReservasLoading(true);
@@ -152,6 +191,35 @@ export default function StudentDashboard() {
   const todayClasses = clases.filter((c) => c.dia_semana === diaHoy);
   const weekClasses = clases.filter((c) => c.dia_semana !== diaHoy);
   const nextClass = todayClasses[0] ?? clases[0];
+  const latestAttendance = stats?.ultimas ?? [];
+
+  const todayClassesTotalPages = Math.ceil(todayClasses.length / ITEMS_PER_PAGE);
+  const weekClassesTotalPages = Math.ceil(weekClasses.length / ITEMS_PER_PAGE);
+  const attendanceTotalPages = Math.ceil(latestAttendance.length / ITEMS_PER_PAGE);
+
+  const paginatedTodayClasses = todayClasses.slice(
+    (todayClassesPage - 1) * ITEMS_PER_PAGE,
+    todayClassesPage * ITEMS_PER_PAGE
+  );
+
+  const paginatedWeekClasses = weekClasses.slice(
+    (weekClassesPage - 1) * ITEMS_PER_PAGE,
+    weekClassesPage * ITEMS_PER_PAGE
+  );
+
+  const paginatedLatestAttendance = latestAttendance.slice(
+    (attendancePage - 1) * ITEMS_PER_PAGE,
+    attendancePage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setTodayClassesPage(1);
+    setWeekClassesPage(1);
+  }, [clases]);
+
+  useEffect(() => {
+    setAttendancePage(1);
+  }, [stats]);
 
   return (
     <main className="min-h-screen bg-bg font-body text-body">
@@ -229,18 +297,21 @@ export default function StudentDashboard() {
               {clasesLoading ? (
                 <p className="text-sm text-body/60">Cargando...</p>
               ) : nextClass ? (
-                <div className="relative grid gap-1 rounded-lg bg-white p-3 text-sm ring-1 ring-title/10 sm:grid-cols-3">
-                  <h2 className="text-xl font-bold text-title">
-                    {nextClass.materia}
-                  </h2>
+                <div className="relative grid rounded-lg bg-white p-3 pr-14 text-sm ring-1 ring-title/10 sm:grid-cols-[1fr_auto_auto] sm:items-center lg:grid-cols-[minmax(0,1.4fr)_auto_auto_auto] lg:gap-6">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-xl font-bold text-title">
+                      {nextClass.materia}
+                    </h2>
+                  </div>
 
-                  <p className="text-sm font-bold text-title">
-                    {nextClass.dia}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end">
+                    <p className="text-sm font-bold text-title">{nextClass.dia}</p>
+                    <p className="text-sm text-body">{nextClass.horario}</p>
+                  </div>
+
+                  <p className="text-sm font-semibold text-title sm:text-right">
+                    {nextClass.aula}
                   </p>
-
-                  <p className="text-sm text-body">{nextClass.horario}</p>
-
-                  <p className="font-semibold text-title">{nextClass.aula}</p>
 
                   <button
                     onClick={() =>
@@ -252,7 +323,8 @@ export default function StudentDashboard() {
                         },
                       })
                     }
-                    className="absolute bottom-0 right-3 top-0 text-sm font-semibold text-title"
+                    className="absolute bottom-0 right-3 top-0 flex items-center text-title"
+                    aria-label="Generar código QR"
                   >
                     <IconQrcode stroke={2} size={32} />
                   </button>
@@ -289,7 +361,7 @@ export default function StudentDashboard() {
                     {clasesLoading ? (
                       <p className="text-sm text-body">Cargando...</p>
                     ) : todayClasses.length > 0 ? (
-                      todayClasses.map((item) => (
+                      paginatedTodayClasses.map((item) => (
                         <ClassCard key={item.id} item={item} />
                       ))
                     ) : (
@@ -297,6 +369,8 @@ export default function StudentDashboard() {
                     )}
                   </div>
                 </div>
+
+                <PaginationControls page={todayClassesPage} totalPages={todayClassesTotalPages} onPageChange={setTodayClassesPage} />
 
                 <div>
                   <div className="mb-3 flex items-center justify-between border-b border-title/10 pb-2">
@@ -313,11 +387,13 @@ export default function StudentDashboard() {
                     {clasesLoading ? (
                       <p className="text-sm text-body">Cargando...</p>
                     ) : (
-                      weekClasses.map((item) => (
+                      paginatedWeekClasses.map((item) => (
                         <ClassCard key={item.id} item={item} />
                       ))
                     )}
                   </div>
+
+                  <PaginationControls page={weekClassesPage} totalPages={weekClassesTotalPages} onPageChange={setWeekClassesPage} />
                 </div>
               </div>
             </section>
@@ -334,7 +410,7 @@ export default function StudentDashboard() {
                   <p className="text-sm text-rose-400">{statsError}</p>
                 )}
 
-                {!statsLoading && !statsError && stats.ultimas.length === 0 && (
+                {!statsLoading && !statsError && latestAttendance.length === 0 && (
                   <p className="text-sm text-body/60">
                     Aún no tienes registros de asistencia.
                   </p>
@@ -342,7 +418,7 @@ export default function StudentDashboard() {
 
                 {!statsLoading &&
                   !statsError &&
-                  stats.ultimas.map((entry, index) => (
+                  paginatedLatestAttendance.map((entry, index) => (
                     <article
                       key={index}
                       className="flex items-center justify-between rounded-lg border border-title/10 bg-white px-4 py-3"
@@ -361,6 +437,8 @@ export default function StudentDashboard() {
                     </article>
                   ))}
               </div>
+
+              <PaginationControls page={attendancePage} totalPages={attendanceTotalPages} onPageChange={setAttendancePage} />
             </section>
           </div>
 

@@ -95,7 +95,7 @@ export default function Home() {
   }, [selectedRole]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center gap-12 bg-bg p-4 text-body sm:px-6">
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center gap-12 p-4 text-body sm:px-6">
       <div className="flex max-w-3xl flex-col">
         <img src="/lily.svg" alt="Flower" className="mb-4 size-32" />
 
@@ -130,44 +130,13 @@ export default function Home() {
         })}
       </section>
 
-      {/* <Footer /> */}
-
       {selectedRole && selectedRoleConfig && (
-        <section
-          className={`fixed inset-0 z-50 flex items-end justify-center px-4 py-4 sm:items-center ${selectedColors.overlay}`}
-          role="dialog"
-          aria-modal="true"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 h-full w-full cursor-default"
-            onClick={closeModal}
-            aria-label="Cerrar modal"
-          />
+        <section className={`fixed inset-0 z-50 flex items-end justify-center px-4 py-4 sm:items-center ${selectedColors.overlay}`} role="dialog" aria-modal="true">
+          <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={closeModal} aria-label="Cerrar modal" />
 
-          <article className="relative z-10 grid max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-lg bg-white md:grid-cols-[minmax(0,1fr)_minmax(340px,440px)]">
-            <section className={`${selectedColors.background} hidden flex-col justify-between p-6 md:flex`}>
-              <button type="button" onClick={closeModal} className={`flex size-10 items-center justify-center rounded-lg ${selectedColors.text}`} aria-label="Cerrar modal">
-                <IconX size={24} stroke={2} />
-              </button>
-
-              <div>
-                <p className={`font-title text-2xl ${selectedColors.text}`}>
-                  {selectedRoleConfig.label}
-                </p>
-
-                <h2 className={`mt-3 font-title text-5xl font-bold leading-none ${selectedColors.text}`}>
-                  {selectedRoleConfig.title}
-                </h2>
-
-                <p className={`mt-4 max-w-md text-sm leading-6 ${selectedColors.muted}`}>
-                  {selectedRoleConfig.description}
-                </p>
-              </div>
-            </section>
-
+          <article className="relative z-10 grid max-h-[92vh] max-w-5xl overflow-hidden rounded-lg bg-bg">
             <section className="max-h-[92vh] overflow-y-auto p-4 sm:p-6 flex flex-col gap-6">
-              <div className="flex flex-col items-start justify-between md:hidden">
+              <div className="flex flex-col items-start justify-between">
                   <p className={`font-title text-2xl ${selectedColors.text}`}>
                     {selectedRoleConfig.title}
                   </p>
