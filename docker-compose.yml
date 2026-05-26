@@ -113,11 +113,13 @@ services:
       - smart-campus-net
 
   # ── Edge Node simulado (sin cámara/GPIO) ─────────────────────────────
-  # Ejecutar interactivo con:
-  #   docker compose --profile simulate run --rm edge-simulator
+  # Es INTERACTIVO (necesita stdin). Profile separado "edge" para que NO
+  # arranque automáticamente con `docker compose --profile simulate up`.
+  # Ejecutar SIEMPRE con:
+  #   docker compose --profile edge run --rm edge-simulator
   # Espera a que backend esté healthy (los certs ya estarán generados).
   edge-simulator:
-    profiles: ["simulate"]
+    profiles: ["edge"]
     build: ./edge
     container_name: sc_edge_sim
     depends_on:

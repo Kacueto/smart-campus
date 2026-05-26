@@ -295,8 +295,8 @@ npm run dev
 ### Modo Docker simulate (todo dockerizado en un solo comando)
 
 ```bash
-docker compose --profile simulate up -d --build              # postgres + redis + mosquitto + backend + frontend
-docker compose --profile simulate run --rm edge-simulator    # edge interactivo
+docker compose --profile simulate up -d --build          # postgres + redis + mosquitto + backend + frontend
+docker compose --profile edge run --rm edge-simulator    # edge interactivo (profile separado)
 ```
 
 - El backend genera certificados RS256 automáticamente vía `entrypoint.sh` si no existen.

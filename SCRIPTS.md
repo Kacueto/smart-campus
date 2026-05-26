@@ -261,10 +261,10 @@ curl -I http://localhost:5173/     # 200 OK
 
 ### 10b) Probar el flujo del QR end-to-end
 
-Edge-simulator se arranca interactivo (necesita stdin):
+Edge-simulator está en un **profile separado** `edge` para que no arranque automáticamente con `up`. Lánzalo interactivo con:
 
 ```bash
-docker compose --profile simulate run --rm edge-simulator
+docker compose --profile edge run --rm edge-simulator
 ```
 
 Aparece:
