@@ -1,14 +1,18 @@
+"""Vistas del módulo de autenticación: login, token, QR, datos del usuario."""
 from pydantic import BaseModel
 from enum import Enum
 
+
 class UserRole(str, Enum):
-    estudiante = "estudiante"
-    docente = "docente"
+    estudiante    = "estudiante"
+    docente       = "docente"
     administrador = "administrador"
+
 
 class LoginRequest(BaseModel):
     codigo: str
     password: str
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -16,9 +20,11 @@ class TokenResponse(BaseModel):
     role: UserRole
     nombre: str
 
+
 class QRTokenResponse(BaseModel):
     qr_token: str
     expires_in: int = 30  # segundos
+
 
 class TokenData(BaseModel):
     user_id: str

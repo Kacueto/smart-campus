@@ -12,6 +12,7 @@ Uso:
 import argparse
 import os
 import time
+import uuid
 import logging
 import json
 import requests
@@ -95,7 +96,11 @@ _mqtt_client: mqtt.Client = None
 def _init_mqtt(aula_id: str):
     """Inicializa el cliente MQTT y se conecta al broker; falla silenciosamente si no está disponible."""
     global _mqtt_client
-    _mqtt_client = mqtt.Client(client_id=f"edge-{aula_id}", protocol=mqtt.MQTTv311)
+    # client_id único por instancia para evitar que dos edges con el mismo aula
+    # se pateen entre sí en el broker ("session taken over") generando un loop
+    # de reconexión cada 2s.
+    client_id = f"edge-{aula_id}-{uuid.uuid4().hex[:6]}"
+    _mqtt_client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
 
     def on_connect(client, userdata, flags, rc):
         if rc == 0:

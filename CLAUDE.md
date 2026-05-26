@@ -73,38 +73,62 @@ Sistema **Smart ID + Smart Campus** para control de acceso inteligente a aulas u
 
 ---
 
-## 📁 Estructura actual
+## 📁 Estructura actual (arquitectura MVC)
 
 ```
 smart-campus/
-├── docker-compose.yml          ✅ postgres + redis funcionando
+├── docker-compose.yml          ✅ postgres + redis + mosquitto + (--profile simulate) backend + edge
 ├── .gitignore                  ✅
 ├── README.md                   ✅
 │
-├── backend/                    ✅ FUNCIONANDO
+├── backend/                    ✅ FUNCIONANDO — arquitectura MVC clásica
+│   ├── Dockerfile              ✅ Python 3.12-slim + uvicorn + healthcheck
+│   ├── entrypoint.sh           ✅ genera claves RS256 si faltan, luego ejecuta uvicorn
+│   ├── .dockerignore           ✅
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py             ✅ FastAPI + CORS + 4 routers
-│   │   ├── database.py         ✅ async engine + get_db()
-│   │   ├── api/
+│   │   ├── main.py             ✅ FastAPI + CORS + monta 7 controllers
+│   │   ├── config.py           ✅ Settings desde env vars (DB, Redis, MQTT, certs, CORS)
+│   │   ├── database.py         ✅ async engine + get_db() (lee de config.Settings)
+│   │   ├── mqtt_client.py      ✅ publica resultados al edge (lee de config.Settings)
+│   │   │
+│   │   ├── auth/                       (autenticación compartida — no MVC)
 │   │   │   ├── __init__.py
-│   │   │   ├── horarios.py     ✅ GET /horarios/mis-clases
-│   │   │   ├── asistencia.py   ✅ GET /asistencia/mis-estadisticas
-│   │   │   ├── profesor.py     ✅ Endpoints del profesor
-│   │   │   └── reservas.py     ✅ CRUD de reservas
-│   │   ├── auth/
+│   │   │   ├── jwt_handler.py  ✅ JWT RS256 + nonce + blacklist + short token
+│   │   │   └── dependencies.py ✅ get_current_user, require_role
+│   │   │
+│   │   ├── models/                     ← MODELO (datos + acceso a DB encapsulado)
 │   │   │   ├── __init__.py
-│   │   │   ├── jwt_handler.py  ✅ JWT RS256 + nonce + blacklist
-│   │   │   ├── dependencies.py ✅ get_current_user, require_role
-│   │   │   ├── router.py       ✅ /auth/login, /register, /logout
-│   │   │   └── schemas.py      ✅ Pydantic models
-│   │   └── models/
+│   │   │   ├── user.py             ✅ SQLAlchemy User class
+│   │   │   ├── user_model.py       ✅ queries (obtener_por_id, listar, crear, toggle, stats)
+│   │   │   ├── aula_model.py       ✅ CRUD aulas + búsqueda disponibles
+│   │   │   ├── horario_model.py    ✅ inscripciones + clase activa estudiante/docente
+│   │   │   ├── reserva_model.py    ✅ CRUD reservas + verificación de traslapes
+│   │   │   ├── asistencia_model.py ✅ INSERT asistencia + estadísticas
+│   │   │   └── acceso_model.py     ✅ INSERT/listar accesos
+│   │   │
+│   │   ├── views/                      ← VISTA (Pydantic schemas request/response)
+│   │   │   ├── __init__.py
+│   │   │   ├── auth_view.py    ✅ LoginRequest, TokenResponse, QRTokenResponse, TokenData, UserRole
+│   │   │   ├── acceso_view.py  ✅ ScanRequest, AccesoResponse
+│   │   │   ├── reserva_view.py ✅ ReservaCreate
+│   │   │   └── admin_view.py   ✅ CrearUsuarioRequest, CrearAulaRequest
+│   │   │
+│   │   └── controllers/                ← CONTROLADOR (handlers + lógica de orquestación)
 │   │       ├── __init__.py
-│   │       └── user.py         ✅ SQLAlchemy User model
+│   │       ├── auth_controller.py      ✅ /auth/login, /qr-token, /logout, /me, /register
+│   │       ├── horarios_controller.py  ✅ /horarios/mis-clases
+│   │       ├── asistencia_controller.py✅ /asistencia/mis-estadisticas
+│   │       ├── profesor_controller.py  ✅ /profesor/* (mis-clases-hoy, generar-qr, etc.)
+│   │       ├── reservas_controller.py  ✅ /reservas/* (CRUD)
+│   │       ├── acceso_controller.py    ✅ /acceso/validar-qr (orquesta validación QR)
+│   │       └── admin_controller.py     ✅ /admin/* (stats, usuarios, aulas, accesos, horarios)
 │   ├── requirements.txt        ✅
 │   └── venv/                   ✅ activo (gitignored)
 │
-├── frontend/                   ✅ FUNCIONANDO
+├── frontend/                   ✅ FUNCIONANDO (dockerizado bajo perfil simulate)
+│   ├── Dockerfile              ✅ Node 20-alpine + Vite dev server (host 0.0.0.0)
+│   ├── .dockerignore           ✅
 │   ├── src/
 │   │   ├── main.jsx
 │   │   ├── App.jsx
@@ -129,9 +153,12 @@ smart-campus/
 │   └── postgres/
 │       └── init.sql            ✅
 │
-├── edge/                       ✅ FUNCIONANDO — corre nativo en Pi 5
+├── edge/                       ✅ FUNCIONANDO — corre nativo en Pi 5, o dockerizado con --simulate
 │   ├── main.py                 ✅ OpenCV + pyzbar + GPIO + MQTT + short token
-│   ├── requirements.txt        ✅
+│   ├── bootstrap.py            ✅ resuelve UUID aula vía psycopg2 y exec main.py (modo Docker simulate)
+│   ├── Dockerfile              ✅ Python 3.11-slim, deps minimal sin OpenCV/GPIO
+│   ├── .dockerignore           ✅
+│   ├── requirements.txt        ✅ (deps completas para la Pi: opencv, pyzbar, gpiozero, lgpio)
 │   └── venv/                   ✅ en la Pi (gitignored)
 ├── mqtt-broker/                ✅ Mosquitto en Docker
 │   └── mosquitto.conf          ✅
@@ -245,6 +272,8 @@ smart-campus/
 
 ## 🖥️ Cómo levantar el proyecto
 
+### Modo desarrollo (backend local + Pi real)
+
 ```bash
 # 1. Servicios Docker
 cd ~/Projects/smart-campus
@@ -262,6 +291,19 @@ uvicorn app.main:app --reload --port 8000 --host 0.0.0.0
 cd frontend
 npm run dev
 ```
+
+### Modo Docker simulate (todo dockerizado en un solo comando)
+
+```bash
+docker compose --profile simulate up -d --build              # postgres + redis + mosquitto + backend + frontend
+docker compose --profile simulate run --rm edge-simulator    # edge interactivo
+```
+
+- El backend genera certificados RS256 automáticamente vía `entrypoint.sh` si no existen.
+- El frontend se sirve en `http://localhost:5173`.
+- El edge resuelve el UUID del aula dinámicamente vía `bootstrap.py`.
+
+Ver SCRIPTS.md sección 10 para el flujo completo de prueba del QR end-to-end.
 
 ### URLs
 - Frontend: http://localhost:5173

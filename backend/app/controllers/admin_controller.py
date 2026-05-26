@@ -1,16 +1,19 @@
+"""Controlador del panel admin: stats globales, CRUD de usuarios/aulas, listado de accesos y horarios."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
-from pydantic import BaseModel
-from typing import Optional
-from uuid import UUID
+from passlib.context import CryptContext
+
 from app.database import get_db
 from app.auth.dependencies import require_role
-from app.auth.schemas import TokenData, UserRole
-from passlib.context import CryptContext
+from app.views.auth_view import TokenData, UserRole
+from app.views.admin_view import CrearUsuarioRequest, CrearAulaRequest
+from app.models import acceso_model, asistencia_model, aula_model, horario_model, user_model
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+_DIAS = {1: "Lunes", 2: "Martes", 3: "Miércoles",
+         4: "Jueves", 5: "Viernes", 6: "Sábado", 7: "Domingo"}
 
 
 # ── Stats globales ────────────────────────────────────────────────────────────
@@ -20,31 +23,16 @@ async def get_stats(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    usuarios = await db.execute(text("""
-        SELECT rol, COUNT(*) as total, COUNT(*) FILTER (WHERE activo) as activos
-        FROM users GROUP BY rol
-    """))
+    """Retorna métricas agregadas (usuarios por rol, aulas, accesos 24h, asistencias totales)."""
+    usuarios = await user_model.stats_usuarios_por_rol(db)
     usuarios_por_rol = {
         row.rol: {"total": row.total, "activos": row.activos}
-        for row in usuarios.fetchall()
+        for row in usuarios
     }
 
-    aulas = await db.execute(text("SELECT COUNT(*) FROM aulas WHERE activa = true"))
-    total_aulas = aulas.scalar()
-
-    accesos = await db.execute(text("""
-        SELECT
-            COUNT(*) FILTER (WHERE evento = 'permitido') as permitidos,
-            COUNT(*) FILTER (WHERE evento = 'denegado')  as denegados
-        FROM accesos
-        WHERE timestamp >= NOW() - INTERVAL '24 hours'
-    """))
-    acc = accesos.fetchone()
-
-    asistencia = await db.execute(text(
-        "SELECT COUNT(*) FROM asistencia WHERE valido = true"
-    ))
-    total_asistencias = asistencia.scalar()
+    total_aulas = await aula_model.contar_aulas_activas(db)
+    acc = await acceso_model.contar_accesos_ultimas_24h(db)
+    total_asistencias = await asistencia_model.total_asistencias_validas(db)
 
     return {
         "usuarios_por_rol":        usuarios_por_rol,
@@ -62,11 +50,7 @@ async def listar_usuarios(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(text("""
-        SELECT id, codigo, nombre, email, rol, activo, created_at
-        FROM users
-        ORDER BY rol, nombre
-    """))
+    rows = await user_model.listar_usuarios(db)
     return [
         {
             "id":         str(r.id),
@@ -77,16 +61,8 @@ async def listar_usuarios(
             "activo":     r.activo,
             "created_at": r.created_at.strftime("%Y-%m-%d"),
         }
-        for r in result.fetchall()
+        for r in rows
     ]
-
-
-class CrearUsuarioRequest(BaseModel):
-    codigo: str
-    nombre: str
-    email: str
-    password: str
-    rol: UserRole
 
 
 @router.post("/usuarios", status_code=status.HTTP_201_CREATED)
@@ -95,27 +71,19 @@ async def crear_usuario(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    exists = await db.execute(
-        text("SELECT id FROM users WHERE codigo = :codigo OR email = :email"),
-        {"codigo": req.codigo, "email": req.email},
-    )
-    if exists.fetchone():
+    if await user_model.existe_usuario(db, req.codigo, req.email):
         raise HTTPException(status_code=400, detail="El código o email ya existe")
 
     hashed = pwd_context.hash(req.password)
-    result = await db.execute(text("""
-        INSERT INTO users (codigo, nombre, email, password, rol)
-        VALUES (:codigo, :nombre, :email, :password, :rol)
-        RETURNING id
-    """), {
-        "codigo":   req.codigo,
-        "nombre":   req.nombre,
-        "email":    req.email,
-        "password": hashed,
-        "rol":      req.rol.value,
-    })
-    await db.commit()
-    return {"message": "Usuario creado", "id": str(result.fetchone().id)}
+    new_id = await user_model.crear_usuario(
+        db,
+        codigo=req.codigo,
+        nombre=req.nombre,
+        email=req.email,
+        password_hash=hashed,
+        rol=req.rol.value,
+    )
+    return {"message": "Usuario creado", "id": new_id}
 
 
 @router.patch("/usuarios/{user_id}/toggle")
@@ -124,14 +92,9 @@ async def toggle_usuario(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        text("UPDATE users SET activo = NOT activo WHERE id = :id RETURNING activo"),
-        {"id": UUID(user_id)},
-    )
-    row = result.fetchone()
+    row = await user_model.toggle_activo(db, user_id)
     if not row:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    await db.commit()
     return {"activo": row.activo}
 
 
@@ -142,15 +105,7 @@ async def listar_aulas(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(text("""
-        SELECT
-            a.id, a.codigo, a.nombre, a.edificio, a.capacidad, a.activa,
-            COUNT(DISTINCT h.id) as total_horarios
-        FROM aulas a
-        LEFT JOIN horarios h ON h.aula_id = a.id AND h.activo = true
-        GROUP BY a.id
-        ORDER BY a.edificio, a.nombre
-    """))
+    rows = await aula_model.listar_aulas_admin(db)
     return [
         {
             "id":             str(r.id),
@@ -161,15 +116,8 @@ async def listar_aulas(
             "activa":         r.activa,
             "total_horarios": r.total_horarios,
         }
-        for r in result.fetchall()
+        for r in rows
     ]
-
-
-class CrearAulaRequest(BaseModel):
-    codigo: str
-    nombre: str
-    edificio: Optional[str] = None
-    capacidad: int = 40
 
 
 @router.post("/aulas", status_code=status.HTTP_201_CREATED)
@@ -178,25 +126,17 @@ async def crear_aula(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    exists = await db.execute(
-        text("SELECT id FROM aulas WHERE codigo = :codigo"),
-        {"codigo": req.codigo},
-    )
-    if exists.fetchone():
+    if await aula_model.existe_aula_por_codigo(db, req.codigo):
         raise HTTPException(status_code=400, detail="El código de aula ya existe")
 
-    result = await db.execute(text("""
-        INSERT INTO aulas (codigo, nombre, edificio, capacidad)
-        VALUES (:codigo, :nombre, :edificio, :capacidad)
-        RETURNING id
-    """), {
-        "codigo":    req.codigo,
-        "nombre":    req.nombre,
-        "edificio":  req.edificio,
-        "capacidad": req.capacidad,
-    })
-    await db.commit()
-    return {"message": "Aula creada", "id": str(result.fetchone().id)}
+    new_id = await aula_model.crear_aula(
+        db,
+        codigo=req.codigo,
+        nombre=req.nombre,
+        edificio=req.edificio,
+        capacidad=req.capacidad,
+    )
+    return {"message": "Aula creada", "id": new_id}
 
 
 # ── Accesos recientes ─────────────────────────────────────────────────────────
@@ -207,25 +147,7 @@ async def listar_accesos(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(text("""
-        SELECT
-            ac.id,
-            ac.timestamp,
-            ac.evento,
-            ac.ip_edge,
-            ac.detalle,
-            u.nombre   as user_nombre,
-            u.codigo   as user_codigo,
-            u.rol      as user_rol,
-            al.nombre  as aula_nombre,
-            al.codigo  as aula_codigo
-        FROM accesos ac
-        LEFT JOIN users u  ON ac.user_id = u.id
-        JOIN  aulas  al ON ac.aula_id = al.id
-        ORDER BY ac.timestamp DESC
-        LIMIT :limit
-    """), {"limit": limit})
-
+    rows = await acceso_model.listar_accesos_recientes(db, limit)
     return [
         {
             "id":          str(r.id),
@@ -239,7 +161,7 @@ async def listar_accesos(
             "aula_nombre": r.aula_nombre,
             "aula_codigo": r.aula_codigo,
         }
-        for r in result.fetchall()
+        for r in rows
     ]
 
 
@@ -250,34 +172,12 @@ async def listar_horarios(
     _: TokenData = Depends(require_role(UserRole.administrador)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(text("""
-        SELECT
-            h.id,
-            h.materia,
-            h.dia_semana,
-            h.hora_inicio::text,
-            h.hora_fin::text,
-            h.activo,
-            u.nombre  as docente,
-            u.codigo  as docente_codigo,
-            a.nombre  as aula,
-            a.codigo  as aula_codigo,
-            a.edificio,
-            COUNT(i.user_id) as total_inscritos
-        FROM horarios h
-        JOIN users u ON h.docente_id = u.id
-        JOIN aulas a ON h.aula_id    = a.id
-        LEFT JOIN inscripciones i ON i.horario_id = h.id
-        GROUP BY h.id, u.id, a.id
-        ORDER BY h.dia_semana, h.hora_inicio
-    """))
-    dias = {1: "Lunes", 2: "Martes", 3: "Miércoles",
-            4: "Jueves", 5: "Viernes", 6: "Sábado", 7: "Domingo"}
+    rows = await horario_model.listar_horarios_admin(db)
     return [
         {
             "id":              str(r.id),
             "materia":         r.materia,
-            "dia":             dias.get(r.dia_semana, ""),
+            "dia":             _DIAS.get(r.dia_semana, ""),
             "dia_semana":      r.dia_semana,
             "horario":         f"{r.hora_inicio[:5]} – {r.hora_fin[:5]}",
             "activo":          r.activo,
@@ -287,5 +187,5 @@ async def listar_horarios(
             "aula_codigo":     r.aula_codigo,
             "total_inscritos": r.total_inscritos,
         }
-        for r in result.fetchall()
+        for r in rows
     ]

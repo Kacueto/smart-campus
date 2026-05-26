@@ -228,7 +228,85 @@ Coloca variables en un `.env` si prefieres y carga con `python-dotenv` en el bac
 - Siempre activar `venv` antes de ejecutar `uvicorn`.
 - `bcrypt` debe ser `4.0.1` (ver `requirements.txt`).
 - Si la Pi no está en la misma red, ajusta `REDIS_URL`/`DATABASE_URL` y la configuración CORS.
-- Para producción crea `Dockerfile` y compose services separados (pendiente en la hoja de ruta).
+
+---
+
+## 10) Modo Docker simulate (todo dockerizado — un solo comando)
+
+Levanta postgres + redis + mosquitto + backend + frontend + edge-simulator en contenedores.
+El edge simulado no usa GPIO ni cámara: lee QRs por `input()` interactivo.
+
+### 10a) Levantar todo (primera vez)
+
+```bash
+# Construir imágenes y levantar todo en background
+docker compose --profile simulate up -d --build
+
+# Ver estado
+docker compose ps
+```
+
+Todo lo necesario se hace automáticamente:
+- ✅ Postgres se inicializa con `init.sql` (usuarios, aulas, horarios, asistencias seed)
+- ✅ Redis y Mosquitto arrancan
+- ✅ Backend genera las claves RS256 en `./infra/certs/` si no existen (vía `entrypoint.sh`)
+- ✅ Backend arranca uvicorn → healthy en ~20s
+- ✅ Frontend Vite se sirve en http://localhost:5173
+
+Verificación:
+```bash
+curl http://localhost:8000/        # {"status":"ok","proyecto":"Smart Campus","arquitectura":"MVC"}
+curl -I http://localhost:5173/     # 200 OK
+```
+
+### 10b) Probar el flujo del QR end-to-end
+
+Edge-simulator se arranca interactivo (necesita stdin):
+
+```bash
+docker compose --profile simulate run --rm edge-simulator
+```
+
+Aparece:
+```
+============================================================
+  SIMULADOR EDGE NODE — Smart Campus
+  Aula: AULA-101
+  Ctrl+C para salir.
+============================================================
+[bootstrap] AULA-101 → <uuid resuelto desde postgres>
+[ Esperando QR del profesor para abrir sesión ]
+QR profesor>
+```
+
+Flujo:
+1. Abre el navegador en `http://localhost:5173` → login `DOC001 / 1234`
+2. Selecciona una clase del día → genera QR → copia el short code (12 chars)
+3. Pégalo en `QR profesor>` → sesión abierta
+4. Login como `2024001 / 1234` (otra pestaña/incógnito) → `POST /auth/qr-token?aula_id=<uuid>`
+5. Pega ese token en `QR estudiante>` → `✔ ACCESO PERMITIDO — LED VERDE`
+6. Verifica el registro en la BD:
+   ```bash
+   docker exec sc_postgres psql -U scadmin -d smartcampus \
+     -c "SELECT user_id, timestamp_in, metodo FROM asistencia ORDER BY timestamp_in DESC LIMIT 3;"
+   ```
+
+### 10c) Parar y limpiar
+
+```bash
+docker compose --profile simulate down            # detiene contenedores, mantiene volúmenes
+docker compose --profile simulate down -v         # también borra postgres_data, redis_data, etc.
+```
+
+### 10d) Tips útiles
+
+- **Si cambias init.sql**, debes recrear el volumen para que se vuelva a ejecutar:
+  ```bash
+  docker compose --profile simulate down -v && docker compose --profile simulate up -d --build
+  ```
+- **Logs en vivo del backend**: `docker compose logs -f backend`
+- **Shell dentro del backend**: `docker compose exec backend sh`
+- **Ver claves generadas**: `ls -la infra/certs/` (las generó el entrypoint del backend container)
 
 ---
 

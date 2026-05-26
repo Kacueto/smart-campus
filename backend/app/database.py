@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from app.config import settings
 
-DATABASE_URL = "postgresql+asyncpg://scadmin:scpassword123@localhost:5432/smartcampus"
-
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(settings.DATABASE_URL, echo=settings.DATABASE_ECHO)
 
 AsyncSessionLocal = async_sessionmaker(
     engine,

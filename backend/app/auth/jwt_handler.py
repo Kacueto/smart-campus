@@ -1,24 +1,30 @@
+"""Servicio de tokens JWT RS256 + control de revocación y anti-replay en Redis.
+
+Esta utilidad la consumen tanto los controllers (login, logout, generar QR)
+como la capa de dependencias FastAPI (verificación de Bearer).
+"""
 import jwt
 import uuid
 import redis
 import logging
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Optional
-from app.auth.schemas import TokenData, UserRole
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Cargar claves RS256
-PRIVATE_KEY = Path("../infra/certs/private.pem").read_text()
-PUBLIC_KEY  = Path("../infra/certs/public.pem").read_text()
+# Cargar claves RS256 desde las rutas configuradas
+PRIVATE_KEY = settings.JWT_PRIVATE_KEY_PATH.read_text()
+PUBLIC_KEY  = settings.JWT_PUBLIC_KEY_PATH.read_text()
 
-ALGORITHM                  = "RS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-QR_TOKEN_EXPIRE_SECONDS     = 30
+ALGORITHM                   = settings.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+QR_TOKEN_EXPIRE_SECONDS     = settings.QR_TOKEN_EXPIRE_SECONDS
 
-# Redis para blacklist
-redis_client = redis.from_url("redis://:redispassword123@localhost:6379/0", decode_responses=True)
+# Redis para blacklist + short tokens QR + nonces
+redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+
 
 # ----------------------------------------------------------
 # Generar access token (login)
@@ -36,6 +42,7 @@ def create_access_token(user_id: str, codigo: str, role: str) -> str:
         "type":   "access",
     }
     return jwt.encode(payload, PRIVATE_KEY, algorithm=ALGORITHM)
+
 
 # ----------------------------------------------------------
 # Generar QR token (TTL 30s + nonce anti-replay)
@@ -66,8 +73,9 @@ def create_qr_token(user_id: str, codigo: str, role: str, aula_id: str) -> str:
 
 
 def resolve_qr_token(short_code: str) -> Optional[str]:
-    """Resuelve un código corto al JWT completo."""
+    """Resuelve un código corto al JWT completo almacenado en Redis."""
     return redis_client.get(f"qr:{short_code}")
+
 
 # ----------------------------------------------------------
 # Verificar cualquier token
@@ -99,6 +107,7 @@ def verify_token(token: str) -> Optional[dict]:
     except jwt.InvalidTokenError as e:
         logger.warning(f"verify_token: token inválido → {e}")
         return None
+
 
 # ----------------------------------------------------------
 # Revocar token (logout / blacklist)

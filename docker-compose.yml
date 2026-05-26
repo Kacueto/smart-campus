@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   smart-campus-net:
     driver: bridge
@@ -67,3 +65,77 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ── Backend FastAPI MVC ──────────────────────────────────────────────
+  # entrypoint.sh genera las claves RS256 automáticamente si no existen
+  # (montadas en ./infra/certs desde el host, sin :ro para permitir escritura).
+  backend:
+    profiles: ["simulate", "full"]
+    build: ./backend
+    container_name: sc_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://scadmin:scpassword123@postgres:5432/smartcampus
+      REDIS_URL: redis://:redispassword123@redis:6379/0
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      JWT_PRIVATE_KEY_PATH: /certs/private.pem
+      JWT_PUBLIC_KEY_PATH: /certs/public.pem
+      DATABASE_ECHO: "false"
+    volumes:
+      - ./infra/certs:/certs
+    ports:
+      - "8000:8000"
+    networks:
+      - smart-campus-net
+
+  # ── Frontend React + Vite ────────────────────────────────────────────
+  # Sirve la PWA en http://localhost:5173. El api.js apunta a
+  # http://localhost:8000 que también está expuesto desde el backend al host.
+  frontend:
+    profiles: ["simulate", "full"]
+    build: ./frontend
+    container_name: sc_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:5173"
+    networks:
+      - smart-campus-net
+
+  # ── Edge Node simulado (sin cámara/GPIO) ─────────────────────────────
+  # Ejecutar interactivo con:
+  #   docker compose --profile simulate run --rm edge-simulator
+  # Espera a que backend esté healthy (los certs ya estarán generados).
+  edge-simulator:
+    profiles: ["simulate"]
+    build: ./edge
+    container_name: sc_edge_sim
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    environment:
+      AULA_CODIGO: AULA-101
+      DATABASE_URL: postgresql://scadmin:scpassword123@postgres:5432/smartcampus
+      BACKEND_URL: http://backend:8000
+      MQTT_HOST: mosquitto
+      EDGE_IP: 172.18.0.99
+    volumes:
+      - ./infra/certs:/infra/certs:ro
+    stdin_open: true
+    tty: true
+    networks:
+      - smart-campus-net

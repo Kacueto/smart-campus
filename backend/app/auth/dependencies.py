@@ -1,7 +1,12 @@
+"""Dependencias FastAPI para autenticación y autorización por rol.
+
+Se usan en los controllers vía `Depends(get_current_user)` o
+`Depends(require_role(UserRole.docente))`.
+"""
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.auth.jwt_handler import verify_token
-from app.auth.schemas import TokenData, UserRole
+from app.views.auth_view import TokenData, UserRole
 
 security = HTTPBearer()
 

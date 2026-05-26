@@ -1,12 +1,9 @@
 import json
 import logging
 import paho.mqtt.client as mqtt
+from app.config import settings
 
 logger = logging.getLogger(__name__)
-
-MQTT_HOST   = "localhost"
-MQTT_PORT   = 1883
-MQTT_CLIENT_ID = "smart-campus-backend"
 
 # Tópicos
 TOPIC_SCAN      = "campus/aula/+/scan"      # edge publica escaneos
@@ -57,15 +54,15 @@ def _on_disconnect(client, userdata, rc):
 
 def start_mqtt():
     global _client
-    _client = mqtt.Client(client_id=MQTT_CLIENT_ID, protocol=mqtt.MQTTv311)
+    _client = mqtt.Client(client_id=settings.MQTT_CLIENT_ID, protocol=mqtt.MQTTv311)
     _client.on_connect    = _on_connect
     _client.on_message    = _on_message
     _client.on_disconnect = _on_disconnect
 
     try:
-        _client.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
+        _client.connect(settings.MQTT_HOST, settings.MQTT_PORT, keepalive=60)
         _client.loop_start()
-        logger.info("MQTT: cliente iniciado")
+        logger.info(f"MQTT: cliente iniciado → {settings.MQTT_HOST}:{settings.MQTT_PORT}")
     except Exception as e:
         logger.error(f"MQTT: no se pudo conectar al broker: {e}")
 

@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.auth.router import router as auth_router
-from app.api.horarios import router as horarios_router
-from app.api.asistencia import router as asistencia_router
-from app.api.profesor import router as profesor_router
-from app.api.reservas import router as reservas_router
-from app.api.acceso import router as acceso_router
-from app.api.admin import router as admin_router
+
+from app.config import settings
 from app import mqtt_client
+from app.controllers.auth_controller       import router as auth_router
+from app.controllers.horarios_controller   import router as horarios_router
+from app.controllers.asistencia_controller import router as asistencia_router
+from app.controllers.profesor_controller   import router as profesor_router
+from app.controllers.reservas_controller   import router as reservas_router
+from app.controllers.acceso_controller     import router as acceso_router
+from app.controllers.admin_controller      import router as admin_router
 
 
 @asynccontextmanager
@@ -22,18 +24,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="Smart Campus API",
-    description="Sistema de control de acceso inteligente — Universidad del Norte",
+    description="Sistema de control de acceso inteligente — Universidad del Norte (arquitectura MVC)",
     version="1.0.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,7 +44,8 @@ app.include_router(reservas_router)
 app.include_router(acceso_router)
 app.include_router(admin_router)
 
+
 @app.get("/")
 def root():
     """Health check básico de la API."""
-    return {"status": "ok", "proyecto": "Smart Campus"}
+    return {"status": "ok", "proyecto": "Smart Campus", "arquitectura": "MVC"}
