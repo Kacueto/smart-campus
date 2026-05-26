@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { QRCode } from "react-qr-code";
-import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, getAsistenciaSesion } from "../services/api";
+import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, getAsistenciaSesion, cerrarSesionProfesor } from "../services/api";
 import Clock from "../components/Clock";
 
 function PaginationControls({ page, totalPages, onPageChange }) {
@@ -58,13 +58,46 @@ export default function TeacherDashboard() {
       .finally(() => setClasesLoading(false));
   }, []);
 
+  const SESION_KEY = "teacherSession";
+
   const [claseSeleccionada, setClaseSeleccionada] = useState(null);
   const [minutos, setMinutos] = useState(10);
-  const [sesionActiva, setSesionActiva] = useState(false);
+  const [sesionActiva, setSesionActiva] = useState(false);      // puerta abierta
+  const [asistenciaActiva, setAsistenciaActiva] = useState(false); // ventana de asistencia
   const [qrToken, setQrToken] = useState(null);
   const [tiempoRestante, setTiempoRestante] = useState(0);
   const [asistentes, setAsistentes] = useState([]);
   const [qrExpira, setQrExpira] = useState(30);
+
+  // Restaurar sesión activa si el profesor cerró sesión de cuenta y volvió a entrar
+  useEffect(() => {
+    const saved = localStorage.getItem(SESION_KEY);
+    if (!saved) return;
+
+    const { claseSeleccionada: clase, minutos: min, startedAt, duracionMs } = JSON.parse(saved);
+
+    // Verificar si la clase ya terminó
+    const [h, m] = clase.hora_fin.split(":").map(Number);
+    const finClase = new Date();
+    finClase.setHours(h, m, 0, 0);
+    if (Date.now() >= finClase.getTime()) {
+      localStorage.removeItem(SESION_KEY);
+      return;
+    }
+
+    const remaining = Math.floor((duracionMs - (Date.now() - startedAt)) / 1000);
+    const conAsistencia = remaining > 0;
+
+    setClaseSeleccionada(clase);
+    setMinutos(min);
+    setSesionActiva(true);
+    setAsistenciaActiva(conAsistencia);
+    if (conAsistencia) setTiempoRestante(remaining);
+
+    generarQRProfesor(clase.aula_id, min, clase.id)
+      .then((data) => { setQrToken(data.qr_token); setQrExpira(30); })
+      .catch(() => { localStorage.removeItem(SESION_KEY); setSesionActiva(false); setAsistenciaActiva(false); });
+  }, []);
 
   const [allClassesPage, setAllClassesPage] = useState(1);
 
@@ -93,8 +126,16 @@ export default function TeacherDashboard() {
         claseSeleccionada.id
       );
 
+      localStorage.setItem(SESION_KEY, JSON.stringify({
+        claseSeleccionada,
+        minutos,
+        startedAt: Date.now(),
+        duracionMs: minutos * 60 * 1000,
+      }));
+
       setQrToken(data.qr_token);
       setSesionActiva(true);
+      setAsistenciaActiva(true);
       setTiempoRestante(minutos * 60);
       setQrExpira(30);
       setAsistentes([]);
@@ -134,21 +175,37 @@ export default function TeacherDashboard() {
   }, [sesionActiva]);
 
   useEffect(() => {
-    if (!sesionActiva) return;
+    if (!asistenciaActiva) return;
 
     timerRef.current = setInterval(() => {
       setTiempoRestante((prev) => {
         if (prev <= 1) {
-          cerrarSesion();
+          clearInterval(timerRef.current);
+          setAsistenciaActiva(false);
           return 0;
         }
-
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [sesionActiva]);
+  }, [asistenciaActiva]);
+
+  // Auto-cerrar puerta cuando termina la clase
+  useEffect(() => {
+    if (!sesionActiva || !claseSeleccionada) return;
+
+    const checkFin = () => {
+      const [h, m] = claseSeleccionada.hora_fin.split(":").map(Number);
+      const fin = new Date();
+      fin.setHours(h, m, 0, 0);
+      if (Date.now() >= fin.getTime()) cerrarPuerta();
+    };
+
+    checkFin();
+    const interval = setInterval(checkFin, 30000);
+    return () => clearInterval(interval);
+  }, [sesionActiva, claseSeleccionada]);
 
   useEffect(() => {
     if (!sesionActiva || !claseSeleccionada) return;
@@ -166,8 +223,13 @@ export default function TeacherDashboard() {
     return () => clearInterval(pollRef.current);
   }, [sesionActiva, claseSeleccionada]);
 
-  const cerrarSesion = () => {
+  const cerrarPuerta = () => {
+    localStorage.removeItem(SESION_KEY);
+    if (claseSeleccionada?.aula_id) {
+      cerrarSesionProfesor(claseSeleccionada.aula_id).catch(() => {});
+    }
     setSesionActiva(false);
+    setAsistenciaActiva(false);
     setQrToken(null);
     setTiempoRestante(0);
 
@@ -396,12 +458,19 @@ export default function TeacherDashboard() {
                       Iniciar sesión y generar QR
                     </button>
                   ) : (
-                    <button
-                      onClick={cerrarSesion}
-                      className="w-full rounded bg-rose-500 py-3 font-bold text-white"
-                    >
-                      Cerrar sesión anticipadamente
-                    </button>
+                    <>
+                      {!asistenciaActiva && (
+                        <p className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">
+                          ● Puerta abierta hasta las {claseSeleccionada?.hora_fin}
+                        </p>
+                      )}
+                      <button
+                        onClick={cerrarPuerta}
+                        className="w-full rounded bg-rose-500 py-3 font-bold text-white"
+                      >
+                        Cerrar puerta anticipadamente
+                      </button>
+                    </>
                   )}
                 </>
               )}
@@ -414,10 +483,16 @@ export default function TeacherDashboard() {
                     QR activo
                   </h2>
 
-                  <div className="flex items-center gap-2 text-sm font-bold text-body">
-                    <IconClock size={16} />
-                    Sesión: {formatTiempo(tiempoRestante)}
-                  </div>
+                  {asistenciaActiva ? (
+                    <div className="flex items-center gap-2 text-sm font-bold text-body">
+                      <IconClock size={16} />
+                      Asistencia: {formatTiempo(tiempoRestante)}
+                    </div>
+                  ) : (
+                    <span className="text-xs font-bold text-green-600">
+                      ● Solo acceso
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex justify-center rounded-lg border border-title/10 bg-white p-4">
@@ -454,7 +529,7 @@ export default function TeacherDashboard() {
               <section className="grid gap-3 rounded-lg border border-title/10 bg-white p-4">
                 <div className="flex items-center justify-between">
                   <h2 className="font-title text-3xl font-bold text-tc-2">
-                    Asistencia
+                    {asistenciaActiva ? "Asistencia" : "Registro de entradas"}
                   </h2>
 
                   <span className="text-sm font-bold text-body">

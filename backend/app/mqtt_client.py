@@ -9,14 +9,23 @@ MQTT_PORT   = 1883
 MQTT_CLIENT_ID = "smart-campus-backend"
 
 # Tópicos
-TOPIC_SCAN      = "campus/aula/+/scan"      # edge publica escaneos
+TOPIC_SCAN      = "campus/aula/+/scan"           # edge publica escaneos
 TOPIC_RESULTADO = "campus/aula/{aula_id}/resultado"  # backend publica resultado
+TOPIC_CONTROL   = "campus/aula/{aula_id}/control"    # backend controla el nodo
 
 _client: mqtt.Client = None
 
 
 def get_client() -> mqtt.Client:
     return _client
+
+
+def publish_control(aula_id: str, mensaje: dict):
+    """Publica un mensaje de control al nodo edge (ej: abrir/cerrar sesión)."""
+    if _client and _client.is_connected():
+        topic = TOPIC_CONTROL.format(aula_id=aula_id)
+        _client.publish(topic, json.dumps(mensaje), qos=1)
+        logger.info(f"MQTT control → {topic}: {mensaje}")
 
 
 def publish_resultado(aula_id: str, resultado: dict):
@@ -57,7 +66,11 @@ def _on_disconnect(client, userdata, rc):
 
 def start_mqtt():
     global _client
-    _client = mqtt.Client(client_id=MQTT_CLIENT_ID, protocol=mqtt.MQTTv311)
+    _client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION1,
+        client_id=MQTT_CLIENT_ID,
+        protocol=mqtt.MQTTv311,
+    )
     _client.on_connect    = _on_connect
     _client.on_message    = _on_message
     _client.on_disconnect = _on_disconnect

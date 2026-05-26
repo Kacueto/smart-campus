@@ -1,13 +1,19 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.auth.router import router as auth_router
-from app.api.horarios import router as horarios_router
-from app.api.asistencia import router as asistencia_router
-from app.api.profesor import router as profesor_router
-from app.api.reservas import router as reservas_router
-from app.api.acceso import router as acceso_router
-from app.api.admin import router as admin_router
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+)
+from app.routers.auth import router as auth_router
+from app.routers.horarios import router as horarios_router
+from app.routers.asistencia import router as asistencia_router
+from app.routers.profesor import router as profesor_router
+from app.routers.reservas import router as reservas_router
+from app.routers.acceso import router as acceso_router
+from app.routers.admin import router as admin_router
 from app import mqtt_client
 
 

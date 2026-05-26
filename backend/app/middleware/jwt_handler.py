@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
-from app.auth.schemas import TokenData, UserRole
+from app.schemas.auth import TokenData, UserRole
 
 logger = logging.getLogger(__name__)
 

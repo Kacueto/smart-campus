@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.auth.jwt_handler import verify_token
-from app.auth.schemas import TokenData, UserRole
+from app.middleware.jwt_handler import verify_token
+from app.schemas.auth import TokenData, UserRole
 
 security = HTTPBearer()
 

@@ -81,6 +81,12 @@ export const getAsistenciaSesion = async (horarioId) => {
   return data;
 };
 
+/** Cierra la sesión de asistencia activa y notifica al nodo edge vía MQTT. */
+export const cerrarSesionProfesor = async (aulaId) => {
+  const { data } = await api.post(`/profesor/cerrar-sesion?aula_id=${aulaId}`);
+  return data;
+};
+
 // QR Token estudiante
 
 

@@ -1,31 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timedelta, timezone
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from app.database import get_db
-from app.auth.dependencies import get_current_user
-from app.auth.schemas import TokenData
-from pydantic import BaseModel
-from datetime import datetime, timedelta, timezone
+from app.schemas.auth import TokenData
+from app.schemas.reserva import ReservaCreate
 
-router = APIRouter(prefix="/reservas", tags=["Reservas"])
 
-class ReservaCreate(BaseModel):
-    aula_id: str
-    inicio: datetime
-    duracion_horas: int
-
-@router.get("/aulas-disponibles")
-async def aulas_disponibles(
-    fecha: str,
-    hora_inicio: str,
-    duracion_horas: int,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Retorna aulas sin clase ni reserva activa en el rango fecha/hora solicitado."""
-    inicio_dt = datetime.strptime(f"{fecha} {hora_inicio}", "%Y-%m-%d %H:%M")
-    fin_dt    = inicio_dt + timedelta(hours=duracion_horas)
-    dia_semana = inicio_dt.isoweekday()  # 1=lunes ... 7=domingo
+async def get_aulas_disponibles(
+    fecha: str, hora_inicio: str, duracion_horas: int,
+    current_user: TokenData, db: AsyncSession,
+) -> list:
+    inicio_dt  = datetime.strptime(f"{fecha} {hora_inicio}", "%Y-%m-%d %H:%M")
+    fin_dt     = inicio_dt + timedelta(hours=duracion_horas)
+    dia_semana = inicio_dt.isoweekday()
 
     result = await db.execute(text("""
         SELECT a.id, a.codigo, a.nombre, a.edificio, a.capacidad
@@ -65,20 +52,15 @@ async def aulas_disponibles(
         for row in rows
     ]
 
-@router.post("/crear")
-async def crear_reserva(
-    data: ReservaCreate,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Crea una reserva verificando traslapes con otras reservas y clases programadas."""
+
+async def crear_reserva(data: ReservaCreate, current_user: TokenData, db: AsyncSession) -> dict:
     if data.duracion_horas not in [1, 2, 3]:
         raise HTTPException(status_code=400, detail="La duración debe ser 1, 2 o 3 horas")
 
     if data.inicio < datetime.now():
         raise HTTPException(status_code=400, detail="No puedes reservar en el pasado")
 
-    fin = data.inicio + timedelta(hours=data.duracion_horas)
+    fin        = data.inicio + timedelta(hours=data.duracion_horas)
     dia_semana = data.inicio.isoweekday()
 
     traslape = await db.execute(text("""
@@ -100,8 +82,8 @@ async def crear_reserva(
         AND hora_inicio < :hora_fin
         AND hora_fin > :hora_inicio
     """), {
-        "aula_id":    data.aula_id,
-        "dia_semana": dia_semana,
+        "aula_id":     data.aula_id,
+        "dia_semana":  dia_semana,
         "hora_inicio": data.inicio.time(),
         "hora_fin":    fin.time(),
     })
@@ -121,12 +103,8 @@ async def crear_reserva(
     await db.commit()
     return {"message": "Reserva creada correctamente"}
 
-@router.get("/mis-reservas")
-async def mis_reservas(
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Retorna las reservas activas y futuras del usuario autenticado."""
+
+async def get_mis_reservas(current_user: TokenData, db: AsyncSession) -> list:
     result = await db.execute(text("""
         SELECT r.id, r.inicio, r.fin, r.estado,
                a.nombre as aula, a.edificio, a.codigo as aula_codigo
@@ -151,13 +129,8 @@ async def mis_reservas(
         for row in rows
     ]
 
-@router.delete("/cancelar/{reserva_id}")
-async def cancelar_reserva(
-    reserva_id: str,
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Cancela una reserva activa del usuario siempre que no haya comenzado aún."""
+
+async def cancelar_reserva(reserva_id: str, current_user: TokenData, db: AsyncSession) -> dict:
     result = await db.execute(text("""
         SELECT id, inicio FROM reservas
         WHERE id = :id AND user_id = :user_id AND estado = 'activa'

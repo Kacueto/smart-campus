@@ -1,19 +1,9 @@
-from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from app.database import get_db
-from app.auth.dependencies import get_current_user
-from app.auth.schemas import TokenData
+from app.schemas.auth import TokenData
 
-router = APIRouter(prefix="/asistencia", tags=["Asistencia"])
 
-@router.get("/mis-estadisticas")
-async def mis_estadisticas(
-    current_user: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Calcula el porcentaje de asistencia del estudiante y retorna sus últimas 5 entradas."""
-    # Total de clases por semana (inscripciones)
+async def get_mis_estadisticas(current_user: TokenData, db: AsyncSession) -> dict:
     total = await db.execute(text("""
         SELECT COUNT(*) as total
         FROM inscripciones i
@@ -22,14 +12,12 @@ async def mis_estadisticas(
     """), {"user_id": current_user.user_id})
     clases_semana = total.scalar() or 0
 
-    # Total asistidas históricas
     historico = await db.execute(text("""
         SELECT COUNT(*) FROM asistencia
         WHERE user_id = :user_id AND valido = true
     """), {"user_id": current_user.user_id})
     total_asistidas = historico.scalar() or 0
 
-    # Clases esperadas en el semestre (semanas transcurridas * clases por semana)
     semanas = await db.execute(text("""
         SELECT GREATEST(1, FLOOR(
             EXTRACT(EPOCH FROM (NOW() - MIN(fecha_inicio))) / 604800
@@ -44,7 +32,6 @@ async def mis_estadisticas(
     porcentaje = round((total_asistidas / esperadas) * 100) if esperadas > 0 else 0
     porcentaje = min(porcentaje, 100)
 
-    # Últimas 5 asistencias
     ultimas = await db.execute(text("""
         SELECT h.materia, a.nombre as aula, at.timestamp_in
         FROM asistencia at
@@ -56,7 +43,6 @@ async def mis_estadisticas(
     """), {"user_id": current_user.user_id})
 
     ultimas_rows = ultimas.fetchall()
-
     return {
         "porcentaje":      f"{porcentaje}%",
         "total_asistidas": total_asistidas,
@@ -69,5 +55,5 @@ async def mis_estadisticas(
                 "timestamp": r.timestamp_in.strftime("%d/%m/%Y %H:%M"),
             }
             for r in ultimas_rows
-        ]
+        ],
     }
