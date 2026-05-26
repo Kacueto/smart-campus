@@ -1,10 +1,12 @@
 import jwt
 import uuid
+import os
 import redis
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from app.schemas.auth import TokenData, UserRole
 
 logger = logging.getLogger(__name__)
@@ -12,6 +14,31 @@ logger = logging.getLogger(__name__)
 # Cargar claves RS256
 PRIVATE_KEY = Path("../infra/certs/private.pem").read_text()
 PUBLIC_KEY  = Path("../infra/certs/public.pem").read_text()
+
+# Cargar clave AES-256 para cifrar el short code del QR
+_aes_key_hex = Path("../infra/certs/aes.key").read_text().strip()
+_AES_KEY = bytes.fromhex(_aes_key_hex)
+_aesgcm  = AESGCM(_AES_KEY)
+
+
+def _encrypt_short_code(short_code: str) -> str:
+    """Cifra el short code con AES-256-GCM. Retorna base64url(nonce+ciphertext+tag)."""
+    import base64
+    nonce = os.urandom(12)
+    ct = _aesgcm.encrypt(nonce, short_code.encode(), None)
+    return base64.urlsafe_b64encode(nonce + ct).decode().rstrip("=")
+
+
+def decrypt_qr_payload(token: str) -> Optional[str]:
+    """Descifra un token AES-GCM del QR. Retorna el short code o None si falla."""
+    try:
+        import base64
+        padded = token + "=" * (-len(token) % 4)
+        raw = base64.urlsafe_b64decode(padded)
+        nonce, ct = raw[:12], raw[12:]
+        return _aesgcm.decrypt(nonce, ct, None).decode()
+    except Exception:
+        return None
 
 ALGORITHM                  = "RS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -62,11 +89,13 @@ def create_qr_token(user_id: str, codigo: str, role: str, aula_id: str) -> str:
     short_code = uuid.uuid4().hex[:12].upper()
     redis_client.setex(f"qr:{short_code}", QR_TOKEN_EXPIRE_SECONDS + 5, full_jwt)
 
-    return short_code
+    # Cifrar el short code con AES-256-GCM antes de meterlo en el QR
+    return _encrypt_short_code(short_code)
 
 
-def resolve_qr_token(short_code: str) -> Optional[str]:
-    """Resuelve un código corto al JWT completo."""
+def resolve_qr_token(token: str) -> Optional[str]:
+    """Descifra el token AES-GCM del QR, luego resuelve el short code en Redis."""
+    short_code = decrypt_qr_payload(token) or token
     return redis_client.get(f"qr:{short_code}")
 
 # ----------------------------------------------------------

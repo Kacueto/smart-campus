@@ -6,6 +6,7 @@ from sqlalchemy import text
 from app.schemas.acceso import ScanRequest, AccesoResponse
 from app.middleware.jwt_handler import verify_token, resolve_qr_token
 from app import mqtt_client
+from app.ws_manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,17 @@ async def _validar_qr_impl(req: ScanRequest, db: AsyncSession) -> AccesoResponse
         """), {"user_id": uid, "aula_id": aula_uid, "horario_id": UUID(horario_id)})
 
     await db.commit()
+
+    if clase_row:
+        await manager.broadcast(horario_id, {
+            "type": "new",
+            "asistente": {
+                "nombre": user.nombre,
+                "codigo": user.codigo,
+                "hora":   datetime.now(timezone.utc).astimezone().strftime("%H:%M"),
+                "metodo": "qr",
+            },
+        })
 
     logger.info(f"Acceso permitido: {user.codigo} → aula {req.aula_id}")
 

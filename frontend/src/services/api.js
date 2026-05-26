@@ -163,3 +163,9 @@ export const getAdminHorarios = async () => {
   const { data } = await api.get("/admin/horarios");
   return data;
 };
+
+/** Retorna alertas de seguridad de las últimas 24 horas. */
+export const getAdminAlertas = async () => {
+  const { data } = await api.get("/admin/alertas");
+  return data;
+};

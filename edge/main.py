@@ -39,6 +39,33 @@ logger = logging.getLogger(__name__)
 # ── Carga clave pública RS256 ────────────────────────────────────────────────
 PUBLIC_KEY = PUBLIC_KEY_PATH.read_text()
 
+# ── Carga clave AES-256-GCM ──────────────────────────────────────────────────
+_AES_KEY_PATH = Path(__file__).parent / "../infra/certs/aes.key"
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM
+    import base64 as _base64
+    _aes_key = bytes.fromhex(_AES_KEY_PATH.read_text().strip())
+    _aesgcm  = _AESGCM(_aes_key)
+    _aes_disponible = True
+    logger.info("AES-256-GCM cargado")
+except Exception as _e:
+    _aesgcm = None
+    _aes_disponible = False
+    logger.warning(f"AES no disponible: {_e}")
+
+
+def _decrypt_qr(token: str) -> str:
+    """Descifra AES-GCM si es posible, si no retorna el token tal cual."""
+    if not _aes_disponible or len(token) <= 20:
+        return token
+    try:
+        padded = token + "=" * (-len(token) % 4)
+        raw = _base64.urlsafe_b64decode(padded)
+        nonce, ct = raw[:12], raw[12:]
+        return _aesgcm.decrypt(nonce, ct, None).decode()
+    except Exception:
+        return token
+
 # ── Estado de sesión compartido con callbacks MQTT ────────────────────────────
 _estado_sesion: dict = {"cerrar": False, "hora_fin_clase": None}
 
@@ -186,8 +213,12 @@ def _llamar_backend(qr_token: str, aula_id: str, ip_edge: str) -> dict:
 
 # ── Bucle principal ───────────────────────────────────────────────────────────
 def _procesar_token_con_resultado(token: str, aula_id: str, aula_uuid: str, ip_edge: str) -> dict:
-    """Orquesta la validación completa del QR: local (si es JWT) → backend → LED → MQTT. Retorna el resultado."""
+    """Orquesta la validación completa del QR: descifra AES-GCM → valida local si JWT → backend → LED → MQTT."""
     logger.info(f"QR recibido (len={len(token)})")
+
+    # Descifrar AES-GCM si aplica (QR cifrado → short code)
+    token = _decrypt_qr(token)
+    logger.info(f"Token tras descifrado (len={len(token)})")
 
     # Si es código corto (≤20 chars) saltar validación local y enviar al backend
     es_codigo_corto = len(token) <= 20

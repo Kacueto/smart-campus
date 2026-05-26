@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { IconLogout2, IconUsers, IconBuilding, IconCalendar, IconShieldCheck, IconPlus, IconX, IconToggleLeft, IconToggleRight } from "@tabler/icons-react";
-import { getAdminStats, getAdminUsuarios, crearAdminUsuario, toggleAdminUsuario, getAdminAulas, crearAdminAula, getAdminAccesos, getAdminHorarios } from "../services/api";
+import { IconLogout2, IconUsers, IconBuilding, IconCalendar, IconShieldCheck, IconPlus, IconX, IconToggleLeft, IconToggleRight, IconAlertTriangle } from "@tabler/icons-react";
+import { getAdminStats, getAdminUsuarios, crearAdminUsuario, toggleAdminUsuario, getAdminAulas, crearAdminAula, getAdminAccesos, getAdminHorarios, getAdminAlertas } from "../services/api";
 import Clock from "../components/Clock";
 
-const TABS = ["Resumen", "Usuarios", "Aulas", "Horarios", "Accesos"];
+const TABS = ["Resumen", "Usuarios", "Aulas", "Horarios", "Accesos", "Alertas"];
 
 const ROL_BADGE = {
   estudiante: "bg-st-1 text-st-3",
@@ -585,6 +585,57 @@ function TabAccesos() {
   );
 }
 
+const NIVEL_STYLE = {
+  critico: "bg-rose-100 text-rose-700",
+  alto:    "bg-orange-100 text-orange-700",
+  medio:   "bg-yellow-100 text-yellow-700",
+};
+
+function TabAlertas() {
+  const [alertas, setAlertas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAdminAlertas()
+      .then(setAlertas)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-sm text-body/60">Cargando...</p>;
+
+  return (
+    <div className="grid gap-4">
+      {alertas.length === 0 ? (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-6 py-8 text-center">
+          <p className="font-bold text-green-700">Sin alertas en las últimas 24 horas</p>
+          <p className="mt-1 text-sm text-green-600">El sistema no detectó actividad sospechosa.</p>
+        </div>
+      ) : (
+        alertas.map((a, i) => (
+          <article key={i} className="flex gap-4 rounded-lg border border-title/10 bg-white p-4">
+            <div className="mt-0.5">
+              <IconAlertTriangle size={20} className={a.nivel === "critico" ? "text-rose-500" : "text-orange-400"} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`rounded px-2 py-0.5 text-xs font-bold ${NIVEL_STYLE[a.nivel] || "bg-bg text-body"}`}>
+                  {a.nivel}
+                </span>
+                <span className="text-xs text-body/60 font-mono">{a.timestamp}</span>
+              </div>
+              <p className="mt-1 font-medium text-title text-sm">{a.descripcion}</p>
+              <p className="text-xs text-body mt-0.5">
+                {a.usuario !== "—" ? `${a.usuario} (${a.codigo})` : ""} · {a.aula}
+              </p>
+            </div>
+          </article>
+        ))
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
@@ -620,6 +671,7 @@ export default function AdminDashboard() {
     Aulas: <IconBuilding size={16} />,
     Horarios: <IconCalendar size={16} />,
     Accesos: <IconShieldCheck size={16} />,
+    Alertas: <IconAlertTriangle size={16} />,
   };
 
   return (
@@ -665,6 +717,7 @@ export default function AdminDashboard() {
           {activeTab === "Aulas" && <TabAulas />}
           {activeTab === "Horarios" && <TabHorarios />}
           {activeTab === "Accesos" && <TabAccesos />}
+          {activeTab === "Alertas" && <TabAlertas />}
         </div>
       </section>
     </main>

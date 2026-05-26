@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { QRCode } from "react-qr-code";
-import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, getAsistenciaSesion, cerrarSesionProfesor } from "../services/api";
+import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, cerrarSesionProfesor } from "../services/api";
 import Clock from "../components/Clock";
 
 function PaginationControls({ page, totalPages, onPageChange }) {
@@ -68,6 +68,7 @@ export default function TeacherDashboard() {
   const [tiempoRestante, setTiempoRestante] = useState(0);
   const [asistentes, setAsistentes] = useState([]);
   const [qrExpira, setQrExpira] = useState(30);
+  const [toast, setToast] = useState(null);
 
   // Restaurar sesión activa si el profesor cerró sesión de cuenta y volvió a entrar
   useEffect(() => {
@@ -106,6 +107,26 @@ export default function TeacherDashboard() {
   const pollRef = useRef(null);
 
   const [sesionError, setSesionError] = useState(null);
+
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {}
+  };
+
+  const showToast = (asistente) => {
+    setToast(asistente);
+    setTimeout(() => setToast(null), 3000);
+  };
   const [copiado, setCopiado] = useState(false);
 
   const copiarToken = () => {
@@ -210,17 +231,23 @@ export default function TeacherDashboard() {
   useEffect(() => {
     if (!sesionActiva || !claseSeleccionada) return;
 
-    const fetch = async () => {
-      try {
-        const data = await getAsistenciaSesion(claseSeleccionada.id);
-        setAsistentes(data);
-      } catch {}
+    const ws = new WebSocket(`ws://localhost:8000/ws/asistencia-sesion/${claseSeleccionada.id}`);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "init") {
+        setAsistentes(data.asistentes);
+      } else if (data.type === "new") {
+        setAsistentes((prev) => [data.asistente, ...prev]);
+        playBeep();
+        showToast(data.asistente);
+      }
     };
 
-    fetch();
-    pollRef.current = setInterval(fetch, 5000);
+    ws.onerror = () => {};
 
-    return () => clearInterval(pollRef.current);
+    pollRef.current = ws;
+    return () => ws.close();
   }, [sesionActiva, claseSeleccionada]);
 
   const cerrarPuerta = () => {
@@ -235,7 +262,8 @@ export default function TeacherDashboard() {
 
     clearInterval(timerRef.current);
     clearInterval(qrTimerRef.current);
-    clearInterval(pollRef.current);
+    pollRef.current?.close?.();
+    pollRef.current = null;
   };
 
   const formatTiempo = (seg) => {
@@ -569,6 +597,16 @@ export default function TeacherDashboard() {
           </aside>
         </div>
       </section>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-3 shadow-lg">
+          <span className="text-lg">✓</span>
+          <div>
+            <p className="text-sm font-bold text-green-800">{toast.nombre}</p>
+            <p className="text-xs text-green-600">{toast.codigo} · {toast.hora}</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

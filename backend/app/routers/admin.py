@@ -76,3 +76,11 @@ async def listar_horarios(
     db: AsyncSession = Depends(get_db),
 ):
     return await admin_controller.listar_horarios(db)
+
+
+@router.get("/alertas")
+async def get_alertas(
+    _: TokenData = Depends(require_role(UserRole.administrador)),
+    db: AsyncSession = Depends(get_db),
+):
+    return await admin_controller.get_alertas(db)

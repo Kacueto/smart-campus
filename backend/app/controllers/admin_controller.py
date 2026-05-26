@@ -224,3 +224,99 @@ async def listar_horarios(db: AsyncSession) -> list:
         }
         for r in result.fetchall()
     ]
+
+
+async def get_alertas(db: AsyncSession) -> list:
+    alertas = []
+
+    # 1. Intentos de replay (nonce ya usado)
+    r1 = await db.execute(text("""
+        SELECT
+            ac.timestamp,
+            u.nombre  AS user_nombre,
+            u.codigo  AS user_codigo,
+            al.codigo AS aula_codigo,
+            ac.ip_edge
+        FROM accesos ac
+        LEFT JOIN users u ON ac.user_id = u.id
+        JOIN  aulas al ON ac.aula_id = al.id
+        WHERE ac.detalle->>'motivo' = 'token_invalido_o_expirado'
+          AND ac.timestamp >= NOW() - INTERVAL '24 hours'
+        ORDER BY ac.timestamp DESC
+        LIMIT 20
+    """))
+    for r in r1.fetchall():
+        alertas.append({
+            "tipo":        "replay_attempt",
+            "nivel":       "alto",
+            "descripcion": f"Token inválido/expirado — posible replay",
+            "usuario":     r.user_nombre or "Desconocido",
+            "codigo":      r.user_codigo or "—",
+            "aula":        r.aula_codigo,
+            "timestamp":   r.timestamp.strftime("%d/%m %H:%M:%S"),
+        })
+
+    # 2. Mismo usuario en dos aulas distintas en menos de 5 minutos
+    r2 = await db.execute(text("""
+        SELECT
+            a1.user_id,
+            u.nombre  AS user_nombre,
+            u.codigo  AS user_codigo,
+            al1.codigo AS aula1,
+            al2.codigo AS aula2,
+            a1.timestamp AS ts1,
+            a2.timestamp AS ts2
+        FROM accesos a1
+        JOIN accesos a2 ON a1.user_id = a2.user_id
+            AND a1.aula_id != a2.aula_id
+            AND ABS(EXTRACT(EPOCH FROM (a1.timestamp - a2.timestamp))) < 300
+            AND a1.evento = 'permitido' AND a2.evento = 'permitido'
+            AND a1.id < a2.id
+        JOIN users u   ON a1.user_id = u.id
+        JOIN aulas al1 ON a1.aula_id = al1.id
+        JOIN aulas al2 ON a2.aula_id = al2.id
+        WHERE a1.timestamp >= NOW() - INTERVAL '24 hours'
+        ORDER BY a1.timestamp DESC
+        LIMIT 10
+    """))
+    for r in r2.fetchall():
+        alertas.append({
+            "tipo":        "impossible_location",
+            "nivel":       "critico",
+            "descripcion": f"Acceso en dos aulas en < 5 min: {r.aula1} y {r.aula2}",
+            "usuario":     r.user_nombre,
+            "codigo":      r.user_codigo,
+            "aula":        f"{r.aula1} / {r.aula2}",
+            "timestamp":   r.ts1.strftime("%d/%m %H:%M:%S"),
+        })
+
+    # 3. Más de 10 escaneos denegados desde el mismo nodo en 1 minuto
+    r3 = await db.execute(text("""
+        SELECT
+            ac.ip_edge,
+            al.codigo AS aula_codigo,
+            COUNT(*) AS intentos,
+            MIN(ac.timestamp) AS desde
+        FROM accesos ac
+        JOIN aulas al ON ac.aula_id = al.id
+        WHERE ac.evento = 'denegado'
+          AND ac.timestamp >= NOW() - INTERVAL '24 hours'
+          AND ac.ip_edge IS NOT NULL
+        GROUP BY ac.ip_edge, al.codigo, date_trunc('minute', ac.timestamp)
+        HAVING COUNT(*) > 10
+        ORDER BY intentos DESC
+        LIMIT 10
+    """))
+    for r in r3.fetchall():
+        alertas.append({
+            "tipo":        "brute_force",
+            "nivel":       "critico",
+            "descripcion": f"{r.intentos} denegados en 1 min desde {r.ip_edge}",
+            "usuario":     "—",
+            "codigo":      "—",
+            "aula":        r.aula_codigo,
+            "timestamp":   r.desde.strftime("%d/%m %H:%M:%S"),
+        })
+
+    alertas.sort(key=lambda a: a["timestamp"], reverse=True)
+    return alertas

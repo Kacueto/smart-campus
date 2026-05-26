@@ -14,6 +14,7 @@ from app.routers.profesor import router as profesor_router
 from app.routers.reservas import router as reservas_router
 from app.routers.acceso import router as acceso_router
 from app.routers.admin import router as admin_router
+from app.routers.ws import router as ws_router
 from app import mqtt_client
 
 
@@ -52,6 +53,7 @@ app.include_router(profesor_router)
 app.include_router(reservas_router)
 app.include_router(acceso_router)
 app.include_router(admin_router)
+app.include_router(ws_router)
 
 @app.get("/")
 def root():
