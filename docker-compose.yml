@@ -56,8 +56,10 @@ services:
     restart: unless-stopped
     ports:
       - "1883:1883"
+      - "8883:8883"
     volumes:
       - ./mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mqtt-broker/certs:/mosquitto/certs:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
     networks:
@@ -67,3 +69,43 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sc_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://scadmin:scpassword123@sc_postgres:5432/smartcampus
+      REDIS_URL: redis://:redispassword123@sc_redis:6379/0
+      MQTT_BROKER_HOST: sc_mosquitto
+      MQTT_BROKER_PORT: "8883"
+      JWT_PRIVATE_KEY_PATH: /certs/private.pem
+      JWT_PUBLIC_KEY_PATH: /certs/public.pem
+      JWT_AES_KEY_PATH: /certs/aes.key
+      MQTT_CA_CERT: /certs/mqtt-ca.crt
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    networks:
+      - smart-campus-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: sc_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - smart-campus-net

@@ -1,16 +1,18 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.schemas.auth import TokenData
 from app.schemas.reserva import ReservaCreate
 
+COLOMBIA_TZ = timezone(timedelta(hours=-5))
+
 
 async def get_aulas_disponibles(
     fecha: str, hora_inicio: str, duracion_horas: int,
     current_user: TokenData, db: AsyncSession,
 ) -> list:
-    inicio_dt  = datetime.strptime(f"{fecha} {hora_inicio}", "%Y-%m-%d %H:%M")
+    inicio_dt  = datetime.strptime(f"{fecha} {hora_inicio}", "%Y-%m-%d %H:%M").replace(tzinfo=COLOMBIA_TZ)
     fin_dt     = inicio_dt + timedelta(hours=duracion_horas)
     dia_semana = inicio_dt.isoweekday()
 
@@ -57,11 +59,18 @@ async def crear_reserva(data: ReservaCreate, current_user: TokenData, db: AsyncS
     if data.duracion_horas not in [1, 2, 3]:
         raise HTTPException(status_code=400, detail="La duración debe ser 1, 2 o 3 horas")
 
-    if data.inicio < datetime.now():
+    inicio_utc = data.inicio if data.inicio.tzinfo else data.inicio.replace(tzinfo=timezone.utc)
+    if inicio_utc < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="No puedes reservar en el pasado")
 
-    fin        = data.inicio + timedelta(hours=data.duracion_horas)
-    dia_semana = data.inicio.isoweekday()
+    inicio_col = inicio_utc.astimezone(COLOMBIA_TZ)
+    fin_col    = inicio_col + timedelta(hours=data.duracion_horas)
+    if (inicio_col.time() < time(7, 0) or inicio_col.time() >= time(18, 0)
+            or fin_col.date() > inicio_col.date() or fin_col.time() > time(18, 0)):
+        raise HTTPException(status_code=400, detail="El horario debe estar entre 07:00 y 18:00")
+
+    fin        = inicio_utc + timedelta(hours=data.duracion_horas)
+    dia_semana = inicio_utc.astimezone(COLOMBIA_TZ).isoweekday()
 
     traslape = await db.execute(text("""
         SELECT COUNT(*) FROM reservas
@@ -84,8 +93,8 @@ async def crear_reserva(data: ReservaCreate, current_user: TokenData, db: AsyncS
     """), {
         "aula_id":     data.aula_id,
         "dia_semana":  dia_semana,
-        "hora_inicio": data.inicio.time(),
-        "hora_fin":    fin.time(),
+        "hora_inicio": inicio_col.time(),
+        "hora_fin":    fin_col.time(),
     })
 
     if clase.scalar() > 0:
@@ -97,7 +106,7 @@ async def crear_reserva(data: ReservaCreate, current_user: TokenData, db: AsyncS
     """), {
         "user_id": current_user.user_id,
         "aula_id": data.aula_id,
-        "inicio":  data.inicio,
+        "inicio":  inicio_utc,
         "fin":     fin,
     })
     await db.commit()
@@ -120,8 +129,8 @@ async def get_mis_reservas(current_user: TokenData, db: AsyncSession) -> list:
     return [
         {
             "id":          str(row.id),
-            "inicio":      row.inicio.strftime("%d/%m/%Y %H:%M"),
-            "fin":         row.fin.strftime("%H:%M"),
+            "inicio":      row.inicio.astimezone(COLOMBIA_TZ).strftime("%d/%m/%Y %H:%M"),
+            "fin":         row.fin.astimezone(COLOMBIA_TZ).strftime("%d/%m/%Y %H:%M"),
             "estado":      row.estado,
             "aula":        f"{row.edificio} - {row.aula}" if row.edificio else row.aula,
             "aula_codigo": row.aula_codigo,

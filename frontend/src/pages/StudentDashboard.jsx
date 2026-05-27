@@ -150,7 +150,7 @@ export default function StudentDashboard() {
     setSuccessMessage("");
 
     try {
-      const inicio = `${reservationDate}T${reservationTime}:00`;
+      const inicio = `${reservationDate}T${reservationTime}:00-05:00`;
 
       await crearReserva(selectedRoom, inicio, duracion);
 
@@ -476,22 +476,13 @@ export default function StudentDashboard() {
                   <option value="">Selecciona una hora</option>
 
                   {[
-                    "07:00",
-                    "08:00",
-                    "09:00",
-                    "10:00",
-                    "11:00",
-                    "12:00",
-                    "13:00",
-                    "14:00",
-                    "15:00",
-                    "16:00",
-                    "17:00",
-                    "18:00",
-                  ].map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
+                    "07:00","08:00","09:00","10:00","11:00","12:00",
+                    "13:00","14:00","15:00","16:00","17:00",
+                  ].filter((h) => {
+                    const [hr] = h.split(":").map(Number);
+                    return hr + duracion <= 18;
+                  }).map((h) => (
+                    <option key={h} value={h}>{h}</option>
                   ))}
                 </select>
               </label>

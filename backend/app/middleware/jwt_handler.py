@@ -12,11 +12,11 @@ from app.schemas.auth import TokenData, UserRole
 logger = logging.getLogger(__name__)
 
 # Cargar claves RS256
-PRIVATE_KEY = Path("../infra/certs/private.pem").read_text()
-PUBLIC_KEY  = Path("../infra/certs/public.pem").read_text()
+PRIVATE_KEY = Path(os.getenv("JWT_PRIVATE_KEY_PATH", "../infra/certs/private.pem")).read_text()
+PUBLIC_KEY  = Path(os.getenv("JWT_PUBLIC_KEY_PATH",  "../infra/certs/public.pem")).read_text()
 
 # Cargar clave AES-256 para cifrar el short code del QR
-_aes_key_hex = Path("../infra/certs/aes.key").read_text().strip()
+_aes_key_hex = Path(os.getenv("JWT_AES_KEY_PATH", "../infra/certs/aes.key")).read_text().strip()
 _AES_KEY = bytes.fromhex(_aes_key_hex)
 _aesgcm  = AESGCM(_AES_KEY)
 
@@ -45,7 +45,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 QR_TOKEN_EXPIRE_SECONDS     = 30
 
 # Redis para blacklist
-redis_client = redis.from_url("redis://:redispassword123@localhost:6379/0", decode_responses=True)
+redis_client = redis.from_url(
+    os.getenv("REDIS_URL", "redis://:redispassword123@localhost:6379/0"),
+    decode_responses=True,
+)
 
 # ----------------------------------------------------------
 # Generar access token (login)
