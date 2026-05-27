@@ -9,6 +9,9 @@ volumes:
   redis_data:
   mosquitto_data:
   mosquitto_log:
+  influxdb_data:
+  influxdb_config:
+  grafana_data:
 
 services:
 
@@ -85,6 +88,10 @@ services:
       JWT_PUBLIC_KEY_PATH: /certs/public.pem
       JWT_AES_KEY_PATH: /certs/aes.key
       MQTT_CA_CERT: /certs/mqtt-ca.crt
+      INFLUXDB_URL: http://sc_influxdb:8086
+      INFLUXDB_TOKEN: smartcampus-influx-token-2024
+      INFLUXDB_ORG: smart-campus
+      INFLUXDB_BUCKET: accesos
     ports:
       - "8000:8000"
     depends_on:
@@ -93,6 +100,8 @@ services:
       redis:
         condition: service_healthy
       mosquitto:
+        condition: service_healthy
+      influxdb:
         condition: service_healthy
     networks:
       - smart-campus-net
@@ -107,5 +116,51 @@ services:
       - "80:80"
     depends_on:
       - backend
+    networks:
+      - smart-campus-net
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: sc_influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: scadmin
+      DOCKER_INFLUXDB_INIT_PASSWORD: scpassword123
+      DOCKER_INFLUXDB_INIT_ORG: smart-campus
+      DOCKER_INFLUXDB_INIT_BUCKET: accesos
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: smartcampus-influx-token-2024
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    networks:
+      - smart-campus-net
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: sc_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: scpassword123
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      influxdb:
+        condition: service_healthy
     networks:
       - smart-campus-net

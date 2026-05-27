@@ -45,8 +45,10 @@ node_modules/
 frontend/dist/
 frontend/build/
 
-# InfluxDB local
+# InfluxDB local data (no el código de provisioning)
 influxdb/
+!infra/grafana/
 
-# Grafana local
+# Grafana local data (no el código de provisioning)
 grafana/
+!infra/grafana/

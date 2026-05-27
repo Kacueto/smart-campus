@@ -7,6 +7,7 @@ from app.schemas.acceso import ScanRequest, AccesoResponse
 from app.middleware.jwt_handler import verify_token, resolve_qr_token
 from app import mqtt_client
 from app.ws_manager import manager
+from app import influx_client
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,12 @@ async def _validar_qr_impl(req: ScanRequest, db: AsyncSession) -> AccesoResponse
     if not clase_row and not reserva_row and not reserva_aula_row:
         await _registrar_acceso(db, user_id, req.aula_id, "denegado", req.ip_edge,
                                 nonce=nonce, motivo="sin_clase_ni_reserva")
+        aula_info = await _get_aula_codigo(db, req.aula_id)
+        influx_client.write_acceso(
+            user_id=user_id, codigo=user.codigo, rol=str(user.rol),
+            aula_id=req.aula_id, aula_codigo=aula_info,
+            resultado="denegado", motivo="sin_clase_ni_reserva", ip_edge=req.ip_edge,
+        )
         return AccesoResponse(
             acceso="denegado",
             motivo="No tienes clase ni reserva activa en esta aula",
@@ -136,6 +143,8 @@ async def _validar_qr_impl(req: ScanRequest, db: AsyncSession) -> AccesoResponse
 
     await db.commit()
 
+    aula_info = await _get_aula_codigo(db, req.aula_id)
+
     if clase_row:
         await manager.broadcast(horario_id, {
             "type": "new",
@@ -146,6 +155,23 @@ async def _validar_qr_impl(req: ScanRequest, db: AsyncSession) -> AccesoResponse
                 "metodo": "qr",
             },
         })
+        materia_row = await db.execute(
+            text("SELECT materia FROM horarios WHERE id = :id"),
+            {"id": UUID(horario_id)},
+        )
+        materia = (materia_row.fetchone() or [""])[0]
+        influx_client.write_asistencia(
+            user_id=user_id, codigo=user.codigo,
+            aula_codigo=aula_info, horario_id=horario_id, materia=materia,
+        )
+
+    influx_client.write_acceso(
+        user_id=user_id, codigo=user.codigo, rol=str(user.rol),
+        aula_id=req.aula_id, aula_codigo=aula_info,
+        resultado="permitido",
+        motivo="clase_activa" if clase_row else "reserva_activa",
+        ip_edge=req.ip_edge,
+    )
 
     logger.info(f"Acceso permitido: {user.codigo} → aula {req.aula_id}")
 
@@ -158,6 +184,15 @@ async def _validar_qr_impl(req: ScanRequest, db: AsyncSession) -> AccesoResponse
     )
     mqtt_client.publish_resultado(req.aula_id, respuesta.model_dump())
     return respuesta
+
+
+async def _get_aula_codigo(db: AsyncSession, aula_id: str) -> str:
+    try:
+        r = await db.execute(text("SELECT codigo FROM aulas WHERE id = :id"), {"id": UUID(aula_id)})
+        row = r.fetchone()
+        return row.codigo if row else aula_id
+    except Exception:
+        return aula_id
 
 
 async def _registrar_acceso(db, user_id, aula_id, evento, ip_edge,

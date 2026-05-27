@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { IconLogout2, IconUsers, IconBuilding, IconCalendar, IconShieldCheck, IconPlus, IconX, IconToggleLeft, IconToggleRight, IconAlertTriangle } from "@tabler/icons-react";
+import { IconLogout2, IconUsers, IconBuilding, IconCalendar, IconShieldCheck, IconPlus, IconX, IconToggleLeft, IconToggleRight, IconAlertTriangle, IconChartBar } from "@tabler/icons-react";
 import { getAdminStats, getAdminUsuarios, crearAdminUsuario, toggleAdminUsuario, getAdminAulas, crearAdminAula, getAdminAccesos, getAdminHorarios, getAdminAlertas } from "../services/api";
 import Clock from "../components/Clock";
 
@@ -680,9 +680,20 @@ export default function AdminDashboard() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <Clock />
 
-          <button onClick={handleLogout} className="flex items-center gap-1.5 px-2 py-1 text-sm font-bold text-[#FD7878]">
-            <IconLogout2 size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="http://localhost:3000"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-md border border-title/10 px-3 py-1.5 text-sm font-semibold text-title hover:bg-title/5"
+            >
+              <IconChartBar size={18} />
+              Métricas
+            </a>
+            <button onClick={handleLogout} className="flex items-center gap-1.5 px-2 py-1 text-sm font-bold text-[#FD7878]">
+              <IconLogout2 size={24} />
+            </button>
+          </div>
         </div>
       </header>
 

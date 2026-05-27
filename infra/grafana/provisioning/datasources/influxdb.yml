@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://sc_influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: smart-campus
+      defaultBucket: accesos
+      tlsSkipVerify: true
+    secureJsonData:
+      token: smartcampus-influx-token-2024
