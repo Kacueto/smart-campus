@@ -1,7 +1,14 @@
+import os
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-DATABASE_URL = "postgresql+asyncpg://scadmin:scpassword123@localhost:5432/smartcampus"
+# En Docker/EC2 la variable de entorno DATABASE_URL apunta a sc_postgres.
+# En desarrollo local (sin la variable) usa localhost.
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://scadmin:scpassword123@localhost:5432/smartcampus",
+)
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 
