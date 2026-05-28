@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:8000";
+// En producción VITE_API_URL viene de .env.production (ej: https://smart-campus-kevin.duckdns.org).
+// En desarrollo local, sin esa variable, se usa http://localhost:8000.
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const api = axios.create({
   baseURL: API_URL,
