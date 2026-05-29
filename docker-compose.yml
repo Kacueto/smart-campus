@@ -110,6 +110,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     container_name: sc_frontend
     restart: unless-stopped
     ports:
