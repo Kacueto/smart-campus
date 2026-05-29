@@ -190,7 +190,12 @@ export default function StudentDashboard() {
 
   const todayClasses = clases.filter((c) => c.dia_semana === diaHoy);
   const weekClasses = clases.filter((c) => c.dia_semana !== diaHoy);
-  const nextClass = todayClasses[0] ?? clases[0];
+  const pendingTodayClasses = todayClasses.filter((c) => {
+    const [h, m] = c.hora_fin.split(":").map(Number);
+    const fin = new Date(); fin.setHours(h, m, 0, 0);
+    return Date.now() < fin.getTime();
+  });
+  const nextClass = pendingTodayClasses[0] ?? clases.find((c) => c.dia_semana > diaHoy) ?? clases[0];
   const latestAttendance = stats?.ultimas ?? [];
 
   const todayClassesTotalPages = Math.ceil(todayClasses.length / ITEMS_PER_PAGE);
