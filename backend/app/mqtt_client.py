@@ -1,11 +1,14 @@
 import json
 import logging
+import os
 import paho.mqtt.client as mqtt
 
 logger = logging.getLogger(__name__)
 
-MQTT_HOST   = "localhost"
-MQTT_PORT   = 1883
+# En Docker/EC2 las variables de entorno apuntan al servicio interno sc_mosquitto.
+# En desarrollo local (sin variables) usa localhost.
+MQTT_HOST   = os.getenv("MQTT_BROKER_HOST", "localhost")
+MQTT_PORT   = int(os.getenv("MQTT_BROKER_PORT", "1883"))
 MQTT_CLIENT_ID = "smart-campus-backend"
 
 # Tópicos
