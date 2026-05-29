@@ -110,8 +110,8 @@ function TabUsuarios() {
     setLoading(true);
 
     getAdminUsuarios()
-      .then(setUsuarios)
-      .catch(() => {})
+      .then((d) => setUsuarios(Array.isArray(d) ? d : []))
+      .catch(() => setUsuarios([]))
       .finally(() => setLoading(false));
   };
 
@@ -295,8 +295,8 @@ function TabAulas() {
     setLoading(true);
 
     getAdminAulas()
-      .then(setAulas)
-      .catch(() => {})
+      .then((d) => setAulas(Array.isArray(d) ? d : []))
+      .catch(() => setAulas([]))
       .finally(() => setLoading(false));
   };
 
@@ -458,8 +458,8 @@ function TabHorarios() {
 
   useEffect(() => {
     getAdminHorarios()
-      .then(setHorarios)
-      .catch(() => {})
+      .then((d) => setHorarios(Array.isArray(d) ? d : []))
+      .catch(() => setHorarios([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -506,8 +506,8 @@ function TabAccesos() {
 
   useEffect(() => {
     getAdminAccesos(100)
-      .then(setAccesos)
-      .catch(() => {})
+      .then((d) => setAccesos(Array.isArray(d) ? d : []))
+      .catch(() => setAccesos([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -597,8 +597,8 @@ function TabAlertas() {
 
   useEffect(() => {
     getAdminAlertas()
-      .then(setAlertas)
-      .catch(() => {})
+      .then((d) => setAlertas(Array.isArray(d) ? d : []))
+      .catch(() => setAlertas([]))
       .finally(() => setLoading(false));
   }, []);
 
