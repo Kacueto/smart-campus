@@ -231,8 +231,7 @@ export default function TeacherDashboard() {
   useEffect(() => {
     if (!sesionActiva || !claseSeleccionada) return;
 
-    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${wsProto}//${window.location.host}/ws/asistencia-sesion/${claseSeleccionada.id}`);
+    const ws = new WebSocket(`ws://localhost:8000/ws/asistencia-sesion/${claseSeleccionada.id}`);
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
