@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -151,7 +151,7 @@ async def _validar_qr_impl(req: ScanRequest, db: AsyncSession) -> AccesoResponse
             "asistente": {
                 "nombre": user.nombre,
                 "codigo": user.codigo,
-                "hora":   datetime.now(timezone.utc).astimezone().strftime("%H:%M"),
+                "hora":   datetime.now(timezone(timedelta(hours=-5))).strftime("%H:%M"),
                 "metodo": "qr",
             },
         })

@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+
+COLOMBIA_TZ = timezone(timedelta(hours=-5))
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -161,7 +163,7 @@ async def get_asistencia_sesion(horario_id: str, db: AsyncSession) -> list:
         FROM asistencia at
         JOIN users u ON at.user_id = u.id
         WHERE at.horario_id = :horario_id
-        AND at.timestamp_in >= NOW() - INTERVAL '2 hours'
+        AND at.timestamp_in >= (NOW() AT TIME ZONE 'America/Bogota')::date AT TIME ZONE 'America/Bogota'
         AND at.valido = true
         ORDER BY at.timestamp_in DESC
     """), {"horario_id": horario_id})
@@ -171,7 +173,7 @@ async def get_asistencia_sesion(horario_id: str, db: AsyncSession) -> list:
         {
             "nombre": r.nombre,
             "codigo": r.codigo,
-            "hora":   r.timestamp_in.strftime("%H:%M"),
+            "hora":   r.timestamp_in.replace(tzinfo=timezone.utc).astimezone(COLOMBIA_TZ).strftime("%H:%M"),
             "metodo": r.metodo,
         }
         for r in rows
@@ -185,14 +187,14 @@ async def get_lista_clase(horario_id: str, db: AsyncSession) -> list:
             u.codigo,
             MAX(at.timestamp_in) FILTER (
                 WHERE at.horario_id = :horario_id
-                AND at.timestamp_in >= NOW() - INTERVAL '2 hours'
+                AND at.timestamp_in >= (NOW() AT TIME ZONE 'America/Bogota')::date AT TIME ZONE 'America/Bogota'
                 AND at.valido = true
             ) AS timestamp_in
         FROM inscripciones i
         JOIN users u ON u.id = i.user_id
         LEFT JOIN asistencia at ON at.user_id = i.user_id
             AND at.horario_id = :horario_id
-            AND at.timestamp_in >= NOW() - INTERVAL '2 hours'
+            AND at.timestamp_in >= (NOW() AT TIME ZONE 'America/Bogota')::date AT TIME ZONE 'America/Bogota'
             AND at.valido = true
         WHERE i.horario_id = :horario_id
         GROUP BY u.nombre, u.codigo
@@ -205,7 +207,7 @@ async def get_lista_clase(horario_id: str, db: AsyncSession) -> list:
             "nombre":  r.nombre,
             "codigo":  r.codigo,
             "asistio": r.timestamp_in is not None,
-            "hora":    r.timestamp_in.strftime("%H:%M") if r.timestamp_in else None,
+            "hora":    r.timestamp_in.replace(tzinfo=timezone.utc).astimezone(COLOMBIA_TZ).strftime("%H:%M") if r.timestamp_in else None,
         }
         for r in rows
     ]
