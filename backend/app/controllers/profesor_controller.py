@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -93,7 +93,8 @@ async def generar_qr(
     aula_id: str, minutos: int, horario_id: str,
     current_user: TokenData, db: AsyncSession,
 ) -> dict:
-    ahora = datetime.now().strftime("%H:%M")
+    COLOMBIA_TZ = timezone(timedelta(hours=-5))
+    ahora = datetime.now(COLOMBIA_TZ).strftime("%H:%M")
 
     horario = await db.execute(
         text("SELECT hora_inicio::text, hora_fin::text FROM horarios WHERE id = :id AND docente_id = :docente_id"),
@@ -128,7 +129,7 @@ async def generar_qr(
         aula_id,
     )
 
-    fin_sesion = (datetime.now() + timedelta(minutes=minutos)).isoformat()
+    fin_sesion = (datetime.now(COLOMBIA_TZ) + timedelta(minutes=minutos)).isoformat()
     mqtt_client.publish_control(aula_id, {
         "accion":        "abrir_sesion",
         "minutos":       minutos,
