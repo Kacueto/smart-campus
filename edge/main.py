@@ -5,13 +5,19 @@ Corre en Raspberry Pi 5 (Python 3.11, sin Docker)
 Dependencias:
     pip install opencv-python pyzbar paho-mqtt PyJWT cryptography requests
 
-Uso:
-    python3 main.py --aula AULA-101 --backend http://<server-ip>:8000
+Uso (red local sin TLS):
+    python3 main.py --aula AULA-101 --aula-uuid <uuid> --backend http://<server-ip>:8000
+
+Uso (producción con HTTPS + MQTT TLS):
+    python3 main.py --aula AULA-101 --aula-uuid <uuid> \\
+        --backend https://tu-dominio.duckdns.org \\
+        --mqtt-host tu-dominio.duckdns.org --mqtt-port 8883 --mqtt-tls
 """
 
 import argparse
 import os
 import select
+import ssl
 import sys
 import time
 import logging
@@ -26,6 +32,7 @@ from datetime import datetime, timezone
 BACKEND_URL   = "http://localhost:8000"
 MQTT_HOST     = "localhost"
 MQTT_PORT     = 1883
+MQTT_TLS      = False    # True para conectar al broker en 8883 con TLS
 PUBLIC_KEY_PATH = Path(__file__).parent / "../infra/certs/public.pem"
 CAMERA_INDEX  = 0        # índice de la webcam USB
 LED_VERDE_PIN = 17       # GPIO BCM
@@ -159,6 +166,15 @@ def _init_mqtt(aula_id: str, aula_uuid: str):
     _mqtt_client.on_connect = on_connect
     _mqtt_client.on_message = on_message
     try:
+        if MQTT_TLS:
+            # Usa el truststore del SO (Let's Encrypt ya viene como CA confiable).
+            _mqtt_client.tls_set(
+                ca_certs=None,
+                cert_reqs=ssl.CERT_REQUIRED,
+                tls_version=ssl.PROTOCOL_TLSv1_2,
+            )
+            _mqtt_client.tls_insecure_set(False)
+            logger.info(f"MQTT: TLS habilitado hacia {MQTT_HOST}:{MQTT_PORT}")
         _mqtt_client.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
         _mqtt_client.loop_start()
     except Exception as e:
@@ -443,11 +459,15 @@ if __name__ == "__main__":
     parser.add_argument("--aula-uuid",   required=True, help="UUID del aula en la BD")
     parser.add_argument("--backend",     default="http://localhost:8000", help="URL del backend")
     parser.add_argument("--mqtt-host",   default="localhost", help="Host del broker MQTT")
+    parser.add_argument("--mqtt-port",   type=int, default=1883, help="Puerto del broker MQTT (8883 con TLS)")
+    parser.add_argument("--mqtt-tls",    action="store_true", help="Habilitar TLS para conexión MQTT")
     parser.add_argument("--ip",          default="0.0.0.0", help="IP de este nodo edge")
     parser.add_argument("--simulate",    action="store_true", help="Modo simulación sin cámara")
     args = parser.parse_args()
 
     MQTT_HOST = args.mqtt_host
+    MQTT_PORT = args.mqtt_port
+    MQTT_TLS  = args.mqtt_tls
     run(
         aula_id=args.aula,
         backend_url=args.backend,
