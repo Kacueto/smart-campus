@@ -50,3 +50,12 @@ async def asistencia_sesion(
     db: AsyncSession = Depends(get_db),
 ):
     return await profesor_controller.get_asistencia_sesion(horario_id, db)
+
+
+@router.get("/lista-clase/{horario_id}")
+async def lista_clase(
+    horario_id: str,
+    current_user: TokenData = Depends(require_role(UserRole.docente)),
+    db: AsyncSession = Depends(get_db),
+):
+    return await profesor_controller.get_lista_clase(horario_id, db)

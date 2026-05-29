@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { IconLogout2, IconQrcode, IconClock, IconUsers, IconRefresh, IconCopy, IconCheck, IconChevronLeft, IconChevronRight, IconList, IconCircleCheck, IconCircle } from "@tabler/icons-react";
 import { QRCode } from "react-qr-code";
-import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, cerrarSesionProfesor } from "../services/api";
+import { getMisClasesHoy, getTodasMisClases, generarQRProfesor, cerrarSesionProfesor, getListaClase } from "../services/api";
 import Clock from "../components/Clock";
 
 function PaginationControls({ page, totalPages, onPageChange }) {
@@ -128,6 +128,8 @@ export default function TeacherDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
   const [copiado, setCopiado] = useState(false);
+  const [vistaLista, setVistaLista] = useState(false);
+  const [listaClase, setListaClase] = useState([]);
 
   const copiarToken = () => {
     navigator.clipboard.writeText(qrToken);
@@ -303,6 +305,14 @@ export default function TeacherDashboard() {
   useEffect(() => {
     setAllClassesPage(1);
   }, [todasClases]);
+
+  useEffect(() => {
+    if (vistaLista && claseSeleccionada) {
+      getListaClase(claseSeleccionada.id)
+        .then((d) => setListaClase(Array.isArray(d) ? d : []))
+        .catch(() => setListaClase([]));
+    }
+  }, [vistaLista, claseSeleccionada, asistentes]);
 
   return (
     <main className="min-h-screen bg-bg font-body text-body">
@@ -557,19 +567,60 @@ export default function TeacherDashboard() {
               <section className="grid gap-3 rounded-lg border border-title/10 bg-white p-4">
                 <div className="flex items-center justify-between">
                   <h2 className="font-title text-3xl font-bold text-tc-2">
-                    {asistenciaActiva ? "Asistencia" : "Registro de entradas"}
+                    {vistaLista ? "Lista" : asistenciaActiva ? "Asistencia" : "Entradas"}
                   </h2>
-
-                  <span className="text-sm font-bold text-body">
-                    {asistentes.length} /{" "}
-                    {claseSeleccionada?.total_estudiantes}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-body">
+                      {asistentes.length} / {claseSeleccionada?.total_estudiantes}
+                    </span>
+                    <button
+                      onClick={() => setVistaLista((v) => !v)}
+                      className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold transition-colors ${
+                        vistaLista
+                          ? "border-orange-300 bg-orange-50 text-orange-500"
+                          : "border-title/10 text-body hover:bg-bg"
+                      }`}
+                    >
+                      {vistaLista ? <IconUsers size={14} /> : <IconList size={14} />}
+                      {vistaLista ? "En vivo" : "Lista"}
+                    </button>
+                  </div>
                 </div>
 
-                {asistentes.length === 0 ? (
-                  <p className="text-sm text-body/60">
-                    Esperando estudiantes...
-                  </p>
+                {vistaLista ? (
+                  listaClase.length === 0 ? (
+                    <p className="text-sm text-body/60">Cargando lista...</p>
+                  ) : (
+                    <div className="grid gap-1.5 max-h-96 overflow-y-auto">
+                      {listaClase.map((e, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                            e.asistio
+                              ? "border-green-200 bg-green-50"
+                              : "border-title/10 bg-bg"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {e.asistio ? (
+                              <IconCircleCheck size={16} className="text-green-600 shrink-0" />
+                            ) : (
+                              <IconCircle size={16} className="text-body/30 shrink-0" />
+                            )}
+                            <div>
+                              <p className="text-sm font-bold text-title">{e.nombre}</p>
+                              <p className="text-xs text-body">{e.codigo}</p>
+                            </div>
+                          </div>
+                          {e.hora && (
+                            <p className="text-xs font-medium text-green-600">{e.hora}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : asistentes.length === 0 ? (
+                  <p className="text-sm text-body/60">Esperando estudiantes...</p>
                 ) : (
                   <div className="grid gap-2">
                     {asistentes.map((a, i) => (
@@ -578,16 +629,10 @@ export default function TeacherDashboard() {
                         className="flex items-center justify-between rounded-lg border border-title/10 bg-bg px-3 py-2"
                       >
                         <div>
-                          <p className="text-sm font-bold text-title">
-                            {a.nombre}
-                          </p>
-
+                          <p className="text-sm font-bold text-title">{a.nombre}</p>
                           <p className="text-xs text-body">{a.codigo}</p>
                         </div>
-
-                        <p className="text-xs font-medium text-body">
-                          {a.hora}
-                        </p>
+                        <p className="text-xs font-medium text-body">{a.hora}</p>
                       </div>
                     ))}
                   </div>

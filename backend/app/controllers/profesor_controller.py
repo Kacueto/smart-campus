@@ -176,3 +176,36 @@ async def get_asistencia_sesion(horario_id: str, db: AsyncSession) -> list:
         }
         for r in rows
     ]
+
+
+async def get_lista_clase(horario_id: str, db: AsyncSession) -> list:
+    result = await db.execute(text("""
+        SELECT
+            u.nombre,
+            u.codigo,
+            MAX(at.timestamp_in) FILTER (
+                WHERE at.horario_id = :horario_id
+                AND at.timestamp_in >= NOW() - INTERVAL '2 hours'
+                AND at.valido = true
+            ) AS timestamp_in
+        FROM inscripciones i
+        JOIN users u ON u.id = i.user_id
+        LEFT JOIN asistencia at ON at.user_id = i.user_id
+            AND at.horario_id = :horario_id
+            AND at.timestamp_in >= NOW() - INTERVAL '2 hours'
+            AND at.valido = true
+        WHERE i.horario_id = :horario_id
+        GROUP BY u.nombre, u.codigo
+        ORDER BY u.nombre
+    """), {"horario_id": horario_id})
+
+    rows = result.fetchall()
+    return [
+        {
+            "nombre":  r.nombre,
+            "codigo":  r.codigo,
+            "asistio": r.timestamp_in is not None,
+            "hora":    r.timestamp_in.strftime("%H:%M") if r.timestamp_in else None,
+        }
+        for r in rows
+    ]
