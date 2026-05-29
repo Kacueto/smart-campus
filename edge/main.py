@@ -26,7 +26,7 @@ import requests
 import jwt
 import paho.mqtt.client as mqtt
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # ── Configuración por defecto ─────────────────────────────────────────────────
 BACKEND_URL   = "http://localhost:8000"
@@ -110,21 +110,37 @@ except Exception as e:
     led_rojo  = None
 
 
-def _activar_led(permitido: bool):
-    """Enciende LED verde (acceso permitido) o rojo (denegado) durante LED_DURACION segundos."""
+def _banner(texto: str, color: str):
+    ancho = 52
+    linea = "═" * ancho
+    print(f"\n\033[{color}m╔{linea}╗")
+    print(f"║{texto.center(ancho)}║")
+    print(f"╚{linea}╝\033[0m\n")
+
+
+def _activar_led(permitido: bool, nombre: str = "", motivo: str = ""):
+    """Muestra resultado visual en terminal y enciende LED si GPIO disponible."""
     if _gpio_disponible:
         led = led_verde if permitido else led_rojo
-        logger.info(f"LED {'VERDE' if permitido else 'ROJO'} encendido por {LED_DURACION}s")
         led.on()
-        time.sleep(LED_DURACION)
-        led.off()
+
+    now = datetime.now(timezone(timedelta(hours=-5))).strftime("%H:%M:%S")
+    if permitido:
+        _banner(f"  ✔  ACCESO PERMITIDO  —  {now}  ", "42;97")
+        if nombre:
+            print(f"\033[92m  👤  {nombre}\033[0m")
+        if motivo:
+            print(f"\033[92m  📋  {motivo.replace('_', ' ').title()}\033[0m")
     else:
-        if permitido:
-            print("\n\033[42m\033[97m  ✔  ACCESO PERMITIDO  — LED VERDE  \033[0m")
-        else:
-            print("\n\033[41m\033[97m  ✘  ACCESO DENEGADO   — LED ROJO   \033[0m")
-        time.sleep(LED_DURACION)
-        print()
+        _banner(f"  ✘  ACCESO DENEGADO   —  {now}  ", "41;97")
+        if motivo:
+            print(f"\033[91m  ⚠   {motivo.replace('_', ' ').title()}\033[0m")
+    print()
+
+    time.sleep(LED_DURACION)
+
+    if _gpio_disponible:
+        led.off()
 
 
 # ── MQTT ──────────────────────────────────────────────────────────────────────
@@ -246,7 +262,7 @@ def _procesar_token_con_resultado(token: str, aula_id: str, aula_uuid: str, ip_e
                 "resultado": "denegado", "motivo": "jwt_invalido_local",
                 "aula_id": aula_id, "ts": datetime.now(timezone.utc).isoformat()
             })
-            _activar_led(permitido=False)
+            _activar_led(permitido=False, motivo="token_invalido")
             return {"acceso": "denegado", "motivo": "jwt_invalido_local"}
 
     resultado = _llamar_backend(token, aula_uuid, ip_edge)
@@ -266,7 +282,11 @@ def _procesar_token_con_resultado(token: str, aula_id: str, aula_uuid: str, ip_e
         "ts":        datetime.now(timezone.utc).isoformat(),
     })
 
-    _activar_led(permitido=permitido)
+    _activar_led(
+        permitido=permitido,
+        nombre=resultado.get("nombre", ""),
+        motivo=resultado.get("motivo", ""),
+    )
     return resultado
 
 
@@ -309,7 +329,7 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                     _estado_sesion["cerrar"] = False
                     _estado_sesion["hora_fin_clase"] = None
                     puerta_abierta = False
-                    print("\n\033[93m  ⏹  Puerta cerrada desde el dashboard\033[0m\n")
+                    _banner("  🔒  PUERTA CERRADA — Dashboard  ", "43;30")
                     continue
 
                 # ── Cierre automático al terminar la clase ─────────────────
@@ -317,7 +337,7 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                     hfc = _estado_sesion["hora_fin_clase"]
                     _estado_sesion["hora_fin_clase"] = None
                     puerta_abierta = False
-                    print(f"\n\033[93m  ⏹  Clase terminada ({hfc}) — puerta cerrada\033[0m\n")
+                    _banner(f"  🔒  CLASE TERMINADA — {hfc}  ", "43;30")
                     continue
 
                 if not puerta_abierta:
@@ -336,14 +356,14 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                             _estado_sesion["cerrar"] = False
                             _estado_sesion["hora_fin_clase"] = None
                             puerta_abierta = False
-                            print("\n\033[93m  ⏹  Puerta cerrada desde el dashboard\033[0m\n")
+                            _banner("  🔒  PUERTA CERRADA — Dashboard  ", "43;30")
                             token = ""
                             break
                         elif _hora_fin_pasada():
                             hfc = _estado_sesion["hora_fin_clase"]
                             _estado_sesion["hora_fin_clase"] = None
                             puerta_abierta = False
-                            print(f"\n\033[93m  ⏹  Clase terminada ({hfc}) — puerta cerrada\033[0m\n")
+                            _banner(f"  🔒  CLASE TERMINADA — {hfc}  ", "43;30")
                             token = ""
                             break
 
@@ -353,7 +373,7 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                 if token.lower() == "cerrar":
                     _estado_sesion["hora_fin_clase"] = None
                     puerta_abierta = False
-                    print("\n\033[93m  ⏹  Puerta cerrada manualmente\033[0m\n")
+                    _banner("  🔒  PUERTA CERRADA — Manual  ", "43;30")
                     continue
 
                 resultado = _procesar_token_con_resultado(token, aula_id, aula_uuid, ip_edge)
@@ -362,8 +382,9 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                     if resultado and resultado.get("acceso") == "permitido" and resultado.get("rol") == "docente":
                         puerta_abierta = True
                         hfc = _estado_sesion.get("hora_fin_clase", "?")
-                        print(f"\n\033[44m\033[97m  🎓  Sesión abierta — Prof. {resultado.get('nombre','')}  \033[0m")
-                        print(f"\033[96m  Puerta abierta hasta {hfc} — pidan pasar a los estudiantes.\033[0m\n")
+                        _banner(f"  🎓  SESIÓN ABIERTA — {resultado.get('nombre','')}  ", "44;97")
+                        print(f"\033[96m  🕐  Puerta abierta hasta las {hfc}\033[0m")
+                        print(f"\033[96m  📷  Estudiantes pueden escanear su QR\033[0m\n")
 
         except KeyboardInterrupt:
             logger.info("Simulación detenida")
@@ -431,7 +452,9 @@ def run(aula_id: str, backend_url: str, aula_uuid: str, ip_edge: str, simulate: 
                     if resultado.get("acceso") == "permitido" and resultado.get("rol") == "docente":
                         puerta_abierta = True
                         hfc = _estado_sesion.get("hora_fin_clase", "?")
-                        logger.info(f"*** SESIÓN ABIERTA — Prof. {resultado.get('nombre','')} — puerta hasta {hfc} ***")
+                        _banner(f"  🎓  SESIÓN ABIERTA — {resultado.get('nombre','')}  ", "44;97")
+                        print(f"\033[96m  🕐  Puerta abierta hasta las {hfc}\033[0m")
+                        print(f"\033[96m  📷  Estudiantes pueden escanear su QR\033[0m\n")
 
             # Solo mostrar ventana si hay display disponible
             if os.environ.get("DISPLAY"):
